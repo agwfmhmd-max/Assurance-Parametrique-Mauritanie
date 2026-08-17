@@ -61,7 +61,7 @@ const T = {
       title: "Météo en direct par zone", eyebrow: "Données réelles",
       live: "DONNÉES RÉELLES EN DIRECT", source: "Source : Open-Meteo.com (API météorologique publique)",
       zoneLabel: "Zone", temp: "Température actuelle", humidity: "Humidité relative", wind: "Vent",
-      precip7d: "Cumul pluies — 7 derniers jours réels", forecastTitle: "Prévisions à 3 jours",
+      precip7d: "Cumul pluies — 7 derniers jours réels", forecastTitle: "Prévisions à 16 jours", past5Title: "Historique réel — 5 dernières années", future5Title: "Projection climatique — 5 prochaines années", futureNote: "Projection climatique (pas une prévision météorologique). Modèle CMIP6 : EC-Earth3P-HR.", yearly: "Moyenne annuelle", rainYear: "Pluie annuelle", tempYear: "Température moyenne",
       updated: "Mise à jour", refresh: "Actualiser",
       loading: "Connexion aux données météorologiques en direct…",
       error: "L'aperçu intégré de cette plateforme ne peut pas appeler directement une API externe depuis ce navigateur (restriction de sécurité de l'environnement d'aperçu). Sur un déploiement réel (Vercel, Next.js…), ce module affichera les données automatiquement.",
@@ -305,7 +305,7 @@ const T = {
       title: "الطقس المباشر حسب المنطقة", eyebrow: "بيانات حقيقية",
       live: "بيانات حقيقية مباشرة", source: "المصدر: Open-Meteo.com (واجهة برمجية جوية عمومية)",
       zoneLabel: "المنطقة", temp: "درجة الحرارة الحالية", humidity: "الرطوبة النسبية", wind: "الرياح",
-      precip7d: "تراكم الأمطار — آخر 7 أيام فعلية", forecastTitle: "توقعات 3 أيام",
+      precip7d: "تراكم الأمطار — آخر 7 أيام فعلية", forecastTitle: "توقعات 16 يومًا", past5Title: "السجل الفعلي — آخر 5 سنوات", future5Title: "الإسقاط المناخي — السنوات الخمس القادمة", futureNote: "هذا إسقاط مناخي وليس توقعًا للطقس. نموذج CMIP6: EC-Earth3P-HR.", yearly: "المتوسط السنوي", rainYear: "الأمطار السنوية", tempYear: "متوسط الحرارة",
       updated: "آخر تحديث", refresh: "تحديث",
       loading: "جارٍ الاتصال بالبيانات الجوية المباشرة…",
       error: "لا يمكن لمعاينة هذه المنصة استدعاء واجهة برمجية خارجية مباشرة من هذا المتصفح (قيد أمني خاص ببيئة المعاينة). عند النشر الفعلي (Vercel، Next.js...) ستعرض هذه الوحدة البيانات تلقائيًا.",
@@ -796,20 +796,62 @@ function PublicSurveyResults({ lang, s }) {
    ============================================================ */
 function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
   const [data, setData] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [projection, setProjection] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
+
+  const addYears = (date, years) => {
+    const d = new Date(date + "T00:00:00Z");
+    d.setUTCFullYear(d.getUTCFullYear() + years);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const addDays = (date, days) => {
+    const d = new Date(date + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  function aggregateYears(times, temps, precs) {
+    const map = new Map();
+    times.forEach((date, i) => {
+      const year = String(date).slice(0, 4);
+      if (!map.has(year)) map.set(year, { year, t: [], rain: 0, n: 0 });
+      const row = map.get(year);
+      const t = Number(temps?.[i]);
+      const p = Number(precs?.[i]);
+      if (Number.isFinite(t)) row.t.push(t);
+      if (Number.isFinite(p)) row.rain += p;
+      row.n += 1;
+    });
+    return [...map.values()].map(x => ({
+      year: x.year,
+      temp: x.t.length ? x.t.reduce((a,b)=>a+b,0)/x.t.length : null,
+      rain: x.rain,
+    }));
+  }
 
   async function fetchWeather(z) {
     setLoading(true);
     setError(null);
     try {
       const coords = ZONE_COORDS[z];
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=7&forecast_days=4&timezone=auto`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("network");
-      const json = await res.json();
-      setData(json);
+      const now = today();
+      const pastStart = addYears(now, -5);
+      const futureEnd = addYears(now, 5);
+      const nearUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=7&forecast_days=16&timezone=auto`;
+      const histUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${pastStart}&end_date=${now}&daily=temperature_2m_mean,precipitation_sum&timezone=auto`;
+      const climateUrl = `https://climate-api.open-meteo.com/v1/climate?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${addDays(now,1)}&end_date=${futureEnd}&models=EC_Earth3P_HR&daily=temperature_2m_mean,precipitation_sum&timezone=auto`;
+      const [nearRes, histRes, climateRes] = await Promise.all([fetch(nearUrl), fetch(histUrl), fetch(climateUrl)]);
+      if (!nearRes.ok || !histRes.ok || !climateRes.ok) throw new Error("network");
+      const [near, hist, climate] = await Promise.all([nearRes.json(), histRes.json(), climateRes.json()]);
+      setData(near);
+      setHistory(aggregateYears(hist.daily?.time || [], hist.daily?.temperature_2m_mean || [], hist.daily?.precipitation_sum || []));
+      setProjection(aggregateYears(climate.daily?.time || [], climate.daily?.temperature_2m_mean || [], climate.daily?.precipitation_sum || []));
       setUpdatedAt(new Date());
     } catch (_) {
       setError(w.error);
@@ -821,117 +863,65 @@ function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
   useEffect(() => { fetchWeather(zone); /* eslint-disable-next-line */ }, [zone]);
 
   const past7Precip = useMemo(() => {
-    if (!data || !data.daily) return null;
+    if (!data?.daily) return null;
     const times = data.daily.time || [];
     const precs = data.daily.precipitation_sum || [];
-    const todayIdx = times.length - 4; // forecast_days=4 appended after past_days=7
+    const todayIdx = times.length - 16;
     let sum = 0;
-    for (let i = 0; i < todayIdx && i < precs.length; i++) sum += (precs[i] || 0);
+    for (let i = 0; i < todayIdx && i < precs.length; i++) sum += Number(precs[i] || 0);
     return sum;
   }, [data]);
 
   const forecastDays = useMemo(() => {
-    if (!data || !data.daily) return [];
+    if (!data?.daily) return [];
     const times = data.daily.time || [];
     const tmax = data.daily.temperature_2m_max || [];
     const tmin = data.daily.temperature_2m_min || [];
     const prec = data.daily.precipitation_sum || [];
-    const startIdx = times.length - 4;
-    const out = [];
-    for (let i = startIdx; i < times.length; i++) {
-      if (i >= 0) out.push({ date: times[i], tmax: tmax[i], tmin: tmin[i], precip: prec[i] });
-    }
-    return out;
+    const startIdx = Math.max(0, times.length - 16);
+    return times.slice(startIdx).map((date, k) => {
+      const i = startIdx + k;
+      return { date, tmax: tmax[i], tmin: tmin[i], precip: prec[i] };
+    });
   }, [data]);
 
   return (
     <Card>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
-        <div className="flex items-center gap-2">
-          <CloudRain size={18} style={{ color: C.blue }} />
-          <span className="font-bold text-sm" style={{ color: C.navy }}>{w.title}</span>
-        </div>
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-white" style={{ backgroundColor: C.green }}>
-          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {w.live}
-        </span>
+        <div className="flex items-center gap-2"><CloudRain size={18} style={{ color: C.blue }} /><span className="font-bold text-sm" style={{ color: C.navy }}>{w.title}</span></div>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-white" style={{ backgroundColor: C.green }}><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {w.live}</span>
       </div>
-
       <div className="flex flex-wrap items-end gap-3 mb-5">
-        <div className="flex-1 min-w-[160px]">
-          <label className="text-xs font-semibold mb-1.5 block" style={{ color: C.navy }}>{w.zoneLabel}</label>
-          <select value={zone} onChange={(e) => setZone(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm" style={{ borderColor: C.border, color: C.navy }}>
-            {ZONES.map(z => <option key={z} value={z}>{lang === "ar" ? ZONE_AR[z] : z}</option>)}
-          </select>
-        </div>
-        <button onClick={() => fetchWeather(zone)} className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border" style={{ borderColor: C.blue, color: C.blue }}>
-          <Repeat size={13} /> {w.refresh}
-        </button>
+        <div className="flex-1 min-w-[160px]"><label className="text-xs font-semibold mb-1.5 block" style={{ color: C.navy }}>{w.zoneLabel}</label><select value={zone} onChange={(e) => setZone(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm" style={{ borderColor: C.border, color: C.navy }}>{ZONES.map(z => <option key={z} value={z}>{lang === "ar" ? ZONE_AR[z] : z}</option>)}</select></div>
+        <button onClick={() => fetchWeather(zone)} className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border" style={{ borderColor: C.blue, color: C.blue }}><Repeat size={13} /> {w.refresh}</button>
       </div>
-
       <div className="text-xs mb-4" style={{ color: C.slateLight }}>{w.capital}: {ZONE_COORDS[zone].capital}</div>
-
       {loading && <p className="text-sm" style={{ color: C.slate }}>{w.loading}</p>}
-
-      {error && !loading && (
-        <div className="rounded-lg p-4 border" style={{ borderColor: C.border, backgroundColor: C.ivory }}>
-          <p className="text-sm mb-4" style={{ color: C.slate }}>{error}</p>
-          <div className="flex flex-wrap gap-2">
-            <a href={`https://www.windy.com/${ZONE_COORDS[zone].lat}/${ZONE_COORDS[zone].lon}?${ZONE_COORDS[zone].lat},${ZONE_COORDS[zone].lon},7`}
-              target="_blank" rel="noopener noreferrer"
-              className="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5" style={{ backgroundColor: C.blue, color: C.white }}>
-              <ExternalLink size={13} /> {w.openLive}
-            </a>
-            <a href={`https://api.open-meteo.com/v1/forecast?latitude=${ZONE_COORDS[zone].lat}&longitude=${ZONE_COORDS[zone].lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=7&forecast_days=4&timezone=auto`}
-              target="_blank" rel="noopener noreferrer"
-              className="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border" style={{ borderColor: C.blue, color: C.blue }}>
-              <ExternalLink size={13} /> {w.openJson}
-            </a>
-          </div>
+      {error && !loading && <div className="rounded-lg p-4 border" style={{ borderColor: C.border, backgroundColor: C.ivory }}><p className="text-sm mb-4" style={{ color: C.slate }}>{error}</p><div className="flex flex-wrap gap-2"><a href={`https://www.windy.com/${ZONE_COORDS[zone].lat}/${ZONE_COORDS[zone].lon}?${ZONE_COORDS[zone].lat},${ZONE_COORDS[zone].lon},7`} target="_blank" rel="noopener noreferrer" className="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5" style={{ backgroundColor: C.blue, color: C.white }}><ExternalLink size={13} /> {w.openLive}</a></div></div>}
+      {!loading && !error && data?.current && <>
+        <div className="grid sm:grid-cols-3 gap-4 mb-5">
+          <div className="rounded-lg p-4" style={{ backgroundColor: C.blueSoft }}><div className="text-xs mb-1" style={{ color: C.blue }}>{w.temp}</div><div className="font-bold text-xl" style={{ color: C.navy }}>{data.current.temperature_2m}°C</div></div>
+          <div className="rounded-lg p-4" style={{ backgroundColor: C.ivory }}><div className="text-xs mb-1" style={{ color: C.slateLight }}>{w.humidity}</div><div className="font-bold text-xl" style={{ color: C.navy }}>{data.current.relative_humidity_2m}%</div></div>
+          <div className="rounded-lg p-4" style={{ backgroundColor: C.ivory }}><div className="text-xs mb-1" style={{ color: C.slateLight }}>{w.wind}</div><div className="font-bold text-xl" style={{ color: C.navy }}>{data.current.wind_speed_10m} km/h</div></div>
         </div>
-      )}
+        <div className="rounded-lg p-4 mb-5" style={{ backgroundColor: C.greenSoft }}><div className="text-xs mb-1" style={{ color: C.green }}>{w.precip7d}</div><div className="font-bold text-lg" style={{ color: C.navy }}>{past7Precip !== null ? `${past7Precip.toFixed(1)} mm` : "—"}</div></div>
+        <div className="text-xs font-semibold mb-2" style={{ color: C.navy }}>{w.forecastTitle}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">{forecastDays.map((d, i) => <div key={i} className="rounded-lg p-3 text-center border" style={{ borderColor: C.border }}><div className="text-[11px] mb-1" style={{ color: C.slateLight }}>{d.date}</div><div className="text-sm font-semibold" style={{ color: C.navy }}>{Math.round(d.tmin)}° / {Math.round(d.tmax)}°</div><div className="text-[11px] mt-1" style={{ color: C.blue }}>{d.precip} mm</div></div>)}</div>
 
-      {!loading && !error && data && data.current && (
-        <>
-          <div className="grid sm:grid-cols-3 gap-4 mb-5">
-            <div className="rounded-lg p-4" style={{ backgroundColor: C.blueSoft }}>
-              <div className="text-xs mb-1" style={{ color: C.blue }}>{w.temp}</div>
-              <div className="font-bold text-xl" style={{ color: C.navy }}>{data.current.temperature_2m}°C</div>
-            </div>
-            <div className="rounded-lg p-4" style={{ backgroundColor: C.ivory }}>
-              <div className="text-xs mb-1" style={{ color: C.slateLight }}>{w.humidity}</div>
-              <div className="font-bold text-xl" style={{ color: C.navy }}>{data.current.relative_humidity_2m}%</div>
-            </div>
-            <div className="rounded-lg p-4" style={{ backgroundColor: C.ivory }}>
-              <div className="text-xs mb-1" style={{ color: C.slateLight }}>{w.wind}</div>
-              <div className="font-bold text-xl" style={{ color: C.navy }}>{data.current.wind_speed_10m} km/h</div>
-            </div>
-          </div>
+        <div className="border-t pt-5 mb-6" style={{ borderColor: C.border }}>
+          <div className="text-sm font-bold mb-2" style={{ color: C.navy }}>{w.past5Title}</div>
+          <p className="text-xs mb-3" style={{ color: C.slateLight }}>{w.yearly}</p>
+          <div className="h-56"><ResponsiveContainer width="100%" height="100%"><LineChart data={history}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="year" /><YAxis yAxisId="temp" /><YAxis yAxisId="rain" orientation="right" /><Tooltip /><Legend /><Line yAxisId="temp" type="monotone" dataKey="temp" name={w.tempYear + " (°C)"} /><Line yAxisId="rain" type="monotone" dataKey="rain" name={w.rainYear + " (mm)"} /></LineChart></ResponsiveContainer></div>
+        </div>
 
-          <div className="rounded-lg p-4 mb-5" style={{ backgroundColor: C.greenSoft }}>
-            <div className="text-xs mb-1" style={{ color: C.green }}>{w.precip7d}</div>
-            <div className="font-bold text-lg" style={{ color: C.navy }}>
-              {past7Precip !== null ? `${past7Precip.toFixed(1)} mm` : "—"}
-            </div>
-            {past7Precip === 0 && <div className="text-xs mt-1" style={{ color: C.slateLight }}>{w.noRain}</div>}
-          </div>
+        <div className="border-t pt-5" style={{ borderColor: C.border }}>
+          <div className="text-sm font-bold mb-2" style={{ color: C.navy }}>{w.future5Title}</div>
+          <p className="text-xs mb-3" style={{ color: C.slateLight }}>{w.futureNote}</p>
+          <div className="h-56"><ResponsiveContainer width="100%" height="100%"><LineChart data={projection}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="year" /><YAxis yAxisId="temp" /><YAxis yAxisId="rain" orientation="right" /><Tooltip /><Legend /><Line yAxisId="temp" type="monotone" dataKey="temp" name={w.tempYear + " (°C)"} /><Line yAxisId="rain" type="monotone" dataKey="rain" name={w.rainYear + " (mm)"} /></LineChart></ResponsiveContainer></div>
+        </div>
 
-          <div className="text-xs font-semibold mb-2" style={{ color: C.navy }}>{w.forecastTitle}</div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-            {forecastDays.map((d, i) => (
-              <div key={i} className="rounded-lg p-3 text-center border" style={{ borderColor: C.border }}>
-                <div className="text-[11px] mb-1" style={{ color: C.slateLight }}>{d.date}</div>
-                <div className="text-sm font-semibold" style={{ color: C.navy }}>{Math.round(d.tmin)}° / {Math.round(d.tmax)}°</div>
-                <div className="text-[11px] mt-1" style={{ color: C.blue }}>{d.precip} mm</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] pt-3 border-t" style={{ borderColor: C.border, color: C.slateLight }}>
-            <span>{w.source}</span>
-            {updatedAt && <span>{w.updated}: {updatedAt.toLocaleTimeString(lang === "ar" ? "ar-MR" : "fr-FR")}</span>}
-          </div>
-        </>
-      )}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] pt-4 mt-5 border-t" style={{ borderColor: C.border, color: C.slateLight }}><span>{w.source}</span>{updatedAt && <span>{w.updated}: {updatedAt.toLocaleTimeString(lang === "ar" ? "ar-MR" : "fr-FR")}</span>}</div>
+      </>}
     </Card>
   );
 }

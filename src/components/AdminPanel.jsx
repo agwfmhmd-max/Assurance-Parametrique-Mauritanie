@@ -24,6 +24,7 @@ export default function AdminPanel({ open, onClose, lang, x, assumptions, onSave
   const [tab, setTab] = useState("overview");
   const [draft, setDraft] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [actionError, setActionError] = useState(null);
   const configured = isSupabaseConfigured();
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function AdminPanel({ open, onClose, lang, x, assumptions, onSave
     return () => sub.subscription.unsubscribe();
   }, [configured]);
 
-  useEffect(() => { if (open) { setDraft({ ...assumptions }); setSaved(false); setAuthError(null); } }, [open]); // eslint-disable-line
+  useEffect(() => { if (open) { setDraft({ ...assumptions }); setSaved(false); setAuthError(null); setActionError(null); } }, [open]); // eslint-disable-line
 
   if (!open) return null;
   const authed = !!session;
@@ -52,10 +53,9 @@ export default function AdminPanel({ open, onClose, lang, x, assumptions, onSave
     setSession(null);
   }
 
-  function handleSaveAssumptions() {
-    onSaveAssumptions(draft, authed);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  async function handleSaveAssumptions() {
+    try { setActionError(null); await onSaveAssumptions(draft, authed); setSaved(true); setTimeout(() => setSaved(false), 2500); }
+    catch (err) { setActionError(err?.message || "SAVE_FAILED"); }
   }
 
   return (
@@ -119,6 +119,7 @@ export default function AdminPanel({ open, onClose, lang, x, assumptions, onSave
         {/* DASHBOARD ADMIN */}
         {authed && (
           <div className="px-5 md:px-7 py-6">
+            {actionError && <div className="rounded-xl border px-4 py-3 mb-5 text-xs font-semibold" style={{ borderColor: `${C.red}55`, backgroundColor: `${C.red}0D`, color: C.red }}>{actionError}</div>}
             {!configured && (
               <div className="rounded-xl border px-4 py-2.5 mb-5 text-xs font-semibold inline-block" style={{ borderColor: `${C.gold}55`, backgroundColor: "#F7F0E0", color: C.gold }}>
                 {x.demoMode}
@@ -212,16 +213,19 @@ function FinanceEditor({ draft, setDraft, onSave, saved, fx }) {
 function TeamEditor({ x, team, onChange, authed }) {
   const empty = { id: "", first_name: "", last_name: "", function: "", specialty: "", bio: "", linkedin: "", role: "", photo_url: "" };
   const [form, setForm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
   const fileRef = useRef(null);
 
   async function save() {
-    const member = { ...form, id: form.id || `local-${Date.now()}` };
-    const next = await saveTeamMember(member, authed);
-    onChange(next);
-    setForm(null);
+    try { setBusy(true); setError(null); const member = { ...form, id: form.id || `local-${Date.now()}` }; const next = await saveTeamMember(member, authed); onChange(next); setForm(null); }
+    catch (err) { setError(err?.message || "TEAM_SAVE_FAILED"); }
+    finally { setBusy(false); }
   }
   async function remove(id) {
-    onChange(await deleteTeamMember(id, authed));
+    try { setBusy(true); setError(null); onChange(await deleteTeamMember(id, authed)); }
+    catch (err) { setError(err?.message || "TEAM_DELETE_FAILED"); }
+    finally { setBusy(false); }
   }
   async function pickPhoto(e) {
     const f = e.target.files?.[0];
@@ -232,6 +236,7 @@ function TeamEditor({ x, team, onChange, authed }) {
 
   return (
     <div>
+      {error && <div className="rounded-xl border px-4 py-3 mb-4 text-xs font-semibold" style={{ borderColor: `${C.red}55`, backgroundColor: `${C.red}0D`, color: C.red }}>{error}</div>}
       <div className="flex justify-end mb-4">
         <button onClick={() => setForm({ ...empty })} className="px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2"
           style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})` }}>
@@ -262,7 +267,7 @@ function TeamEditor({ x, team, onChange, authed }) {
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickPhoto} />
           </div>
           <div className="flex gap-3">
-            <button onClick={save} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: `linear-gradient(135deg, ${C.green}, #146644)` }}>{x.confirm}</button>
+            <button onClick={save} disabled={busy} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.green}, #146644)` }}>{x.confirm}</button>
             <button onClick={() => setForm(null)} className="px-5 py-2.5 rounded-xl text-sm font-semibold border hover:bg-black/5" style={{ borderColor: C.border, color: C.slate }}>{x.cancel}</button>
           </div>
         </Card>

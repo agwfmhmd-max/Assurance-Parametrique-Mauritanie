@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import { Lock } from "lucide-react";
 import { C, Card, SectionTitle, DataBadge, Tip, fmtNumber } from "./shared";
-import { projectYears, breakEven, roi, npv, irr, breakEvenCurve, fmtCompact, SCENARIOS } from "../finance/engine";
+import { DEFAULT_ASSUMPTIONS, projectYears, breakEven, roi, npv, irr, breakEvenCurve, fmtCompact, SCENARIOS } from "../finance/engine";
 
 const ChartCard = ({ title, tip, children, badge, badges }) => (
   <Card>
@@ -23,9 +23,11 @@ const tickFmt = (lang) => (v) => fmtCompact(v, lang);
 
 export default function FinanceSection({ x, lang, badges, assumptions, isAdmin }) {
   const [tab, setTab] = useState(0);
-  const [rate, setRate] = useState(assumptions.discountRate);
+  const a = { ...DEFAULT_ASSUMPTIONS, ...(assumptions || {}) };
+  const [rate, setRate] = useState(a.discountRate);
 
-  const a = assumptions;
+  const safe = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+  Object.keys(a).forEach((k) => { if (typeof a[k] === "number") a[k] = safe(a[k]); });
   const rows = useMemo(() => projectYears(a), [a]);
   const be = useMemo(() => breakEven(a), [a]);
   const roiC = useMemo(() => roi(rows, a.initialInvestment), [rows, a]);

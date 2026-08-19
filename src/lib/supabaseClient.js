@@ -12,4 +12,10 @@ if (!url || !anonKey) {
 
 // Only the anon (public) key is ever used in this frontend.
 // The service_role key must NEVER appear in client code.
-export const supabase = createClient(url, anonKey);
+// Fall back to a placeholder so the app still mounts when env vars are
+// absent (e.g. local preview) — the survey widget then shows its built-in
+// error state instead of crashing the whole platform.
+export const supabase = createClient(
+  url || "https://placeholder.supabase.co",
+  anonKey || "placeholder-anon-key"
+);

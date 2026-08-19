@@ -1,43 +1,31 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { supabase } from "./lib/supabaseClient";
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, RadarChart, PolarGrid,
-  PolarAngleAxis, PolarRadiusAxis, Radar, AreaChart, Area,
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 import {
-  Globe, Menu, X, Droplets, Thermometer, Wind, Sprout, Beef, Shield,
-  Calculator, TrendingUp, AlertTriangle, CheckCircle2, ChevronRight,
-  ChevronDown, MapPin, FileText, Users, BarChart3, Info, ArrowRight,
-  CloudRain, Sun, Umbrella, GraduationCap, Building2, ClipboardList,
-  Layers, Repeat, Target, Gauge, ExternalLink, Lock
+  Globe, Menu, X, Droplets, Wind, Sprout, Beef, Shield,
+  Calculator, AlertTriangle, CheckCircle2, ChevronRight,
+  ChevronDown, Users, BarChart3, Info, ArrowRight,
+  CloudRain, Sun, GraduationCap, Layers, Repeat, Gauge, ExternalLink,
+  CloudLightning, Zap, Banknote,
 } from "lucide-react";
-
-/* ============================================================
-   DESIGN TOKENS
-   ============================================================ */
-const C = {
-  navy: "#0B1E39",
-  navyLight: "#132C52",
-  blue: "#1B4E8C",
-  blueLight: "#3B6FAE",
-  blueSoft: "#EAF1FA",
-  ivory: "#F6F7FA",
-  white: "#FFFFFF",
-  green: "#1E8A5F",
-  greenSoft: "#E4F5EC",
-  orange: "#C97A1F",
-  orangeSoft: "#FBEEDD",
-  red: "#B93A32",
-  redSoft: "#FBEAE8",
-  gold: "#B08A3E",
-  ink: "#111827",
-  slate: "#4B5563",
-  slateLight: "#8792A2",
-  border: "#E2E6ED",
-};
-
-const RISK_COLORS = { normal: C.green, vigilance: "#D6A61A", secheresse: C.orange, severe: "#C4501F", critique: C.red };
+import {
+  C, RISK_COLORS, RISK_LABELS_FR, RISK_LABELS_AR, riskFromIndex, fmtNumber,
+  Reveal, Eyebrow, SectionTitle, SimBadge, RiskDot, Card, Tip, ICONS, DataBadge,
+} from "./components/shared";
+import Logo from "./components/Logo";
+import { EXT } from "./i18n/extend";
+import { DEFAULT_ASSUMPTIONS } from "./finance/engine";
+import { loadAssumptions, saveAssumptions, loadTeam } from "./services/data";
+import KpiDashboard from "./components/KpiDashboard";
+import MarcheSection from "./components/MarcheSection";
+import { TechniqueSection, TriggerSimulator } from "./components/TechniqueSection";
+import FinanceSection from "./components/FinanceSection";
+import { ScenariosSection, SensibiliteSection } from "./components/ScenariosSensibilite";
+import { TeamSection, ConclusionSection } from "./components/TeamConclusion";
+import AdminPanel from "./components/AdminPanel";
 
 /* ============================================================
    TRANSLATIONS
@@ -47,13 +35,20 @@ const T = {
     dir: "ltr",
     nav: { home: "Accueil", etude: "Notre étude", risques: "Risques climatiques", parametrique: "Assurance paramétrique", agricole: "Modèle agricole", elevage: "Modèle élevage", simulateur: "Simulation", resultats: "Résultats", methodologie: "Méthodologie", apropos: "À propos" },
     badgeAcademic: "Projet de fin d'études — ISCAE Mauritanie",
+    badgeAcademicShort: "ISCAE · PFE",
     hero: {
-      kicker: "Licence 3 · Banque & Assurance · ISCAE Mauritanie",
-      title: "Assurance Paramétrique Climatique en Mauritanie",
-      subtitle: "Étude de faisabilité pour les secteurs agricole et de l'élevage",
-      desc: "Une plateforme académique interactive qui transforme une étude de fin de licence en un modèle démonstratif : indices climatiques, seuils de déclenchement, prime, indemnisation et réassurance.",
+      kicker: "Institut Supérieur de Comptabilité et d'Administration des Entreprises — ISCAE",
+      title: "Étude de faisabilité de la mise en place d'un système d'assurance paramétrique contre les risques climatiques en Mauritanie",
+      subtitle: "Cas des secteurs agricole et de l'élevage",
+      desc: "Une approche innovante pour renforcer la résilience financière des secteurs agricole et de l'élevage face aux risques climatiques.",
       cta1: "Explorer l'étude", cta2: "Lancer la simulation",
       flow: ["Mauritanie", "Climat", "Agriculture / Élevage", "Indice paramétrique", "Assurance", "Indemnisation"],
+      stats: [
+        ["7", "Wilayas analysées"],
+        ["2", "Secteurs modélisés"],
+        ["5 ans", "Historique climatique"],
+        ["0–100", "Indice paramétrique"],
+      ],
     },
     simBadge: "SIMULATION ACADÉMIQUE",
     dataSim: "Données simulées à des fins académiques",
@@ -291,13 +286,20 @@ const T = {
     dir: "rtl",
     nav: { home: "الرئيسية", etude: "دراستنا", risques: "المخاطر المناخية", parametrique: "التأمين التأشيري", agricole: "النموذج الزراعي", elevage: "نموذج الثروة الحيوانية", simulateur: "المحاكاة", resultats: "النتائج", methodologie: "المنهجية", apropos: "حول المشروع" },
     badgeAcademic: "مشروع تخرج — إسكاي موريتانيا",
+    badgeAcademicShort: "ISCAE · مشروع تخرج",
     hero: {
-      kicker: "الإجازة 3 · بنوك وتأمين · إسكاي موريتانيا",
-      title: "التأمين التأشيري المناخي في موريتانيا",
-      subtitle: "دراسة جدوى لقطاعي الزراعة وتربية الماشية",
-      desc: "منصة أكاديمية تفاعلية تحوّل بحث تخرج إلى نموذج تطبيقي: مؤشرات مناخية، عتبات التفعيل، القسط، التعويض وإعادة التأمين.",
+      kicker: "المعهد العالي للمحاسبة وإدارة المؤسسات — ISCAE",
+      title: "دراسة جدوى إنشاء نظام تأمين تأشيري ضد المخاطر المناخية في موريتانيا",
+      subtitle: "حالة قطاعي الزراعة وتربية الماشية",
+      desc: "مقاربة مبتكرة لتعزيز الصمود المالي لقطاعي الزراعة وتربية الماشية أمام المخاطر المناخية.",
       cta1: "استكشاف الدراسة", cta2: "بدء المحاكاة",
       flow: ["موريتانيا", "المناخ", "الزراعة / تربية الماشية", "المؤشر التأشيري", "التأمين", "التعويض"],
+      stats: [
+        ["7", "ولايات مدروسة"],
+        ["2", "قطاعات نموذجية"],
+        ["5 سنوات", "سجل مناخي"],
+        ["0–100", "مؤشر تأشيري"],
+      ],
     },
     simBadge: "محاكاة أكاديمية",
     dataSim: "بيانات محاكاة لأغراض أكاديمية",
@@ -512,7 +514,7 @@ const T = {
     apropos: {
       title: "حول المشروع", eyebrow: "بطاقة المشروع",
       project: "مشروع تخرج", specialty: "التخصص: بنوك وتأمين", level: "المستوى: الإجازة 3",
-      school: "المعهد العالي للمحاسبة وإدارة المؤسسات (إسكاي) — موريتانيا",
+      school: "المعهد العالي للمحاسبة وإدارة المؤسسات (ISCAE) — موريتانيا",
     },
     footer: {
       line1: "دراسة جدوى التأمين التأشيري المناخي في موريتانيا",
@@ -594,76 +596,8 @@ const PREMIUM_VS_INDEMNITY = [
 const PIE_COLORS = [C.blue, C.blueLight, C.gold, C.orange];
 
 /* ============================================================
-   HELPERS
+   HELPERS — déplacés dans ./components/shared (importés ci-dessus)
    ============================================================ */
-function riskFromIndex(idx) {
-  if (idx >= 90) return { key: "normal", pct: 0 };
-  if (idx >= 80) return { key: "vigilance", pct: 25 };
-  if (idx >= 70) return { key: "secheresse", pct: 50 };
-  if (idx >= 60) return { key: "severe", pct: 75 };
-  return { key: "critique", pct: 100 };
-}
-
-const RISK_LABELS_FR = { normal: "Normal", vigilance: "Vigilance", secheresse: "Sécheresse", severe: "Sévère", critique: "Critique" };
-const RISK_LABELS_AR = { normal: "عادي", vigilance: "يقظة", secheresse: "جفاف", severe: "حاد", critique: "حرج" };
-
-function fmtNumber(n, lang) {
-  return new Intl.NumberFormat(lang === "ar" ? "ar-MR" : "fr-FR").format(Math.round(n));
-}
-
-/* ============================================================
-   SMALL UI PRIMITIVES
-   ============================================================ */
-const Eyebrow = ({ children }) => (
-  <div className="inline-flex items-center gap-2 text-xs font-semibold tracking-wide uppercase mb-3" style={{ color: C.blue }}>
-    <span className="w-6 h-px" style={{ backgroundColor: C.gold }} />
-    {children}
-  </div>
-);
-
-const SectionTitle = ({ eyebrow, title, desc }) => (
-  <div className="max-w-3xl mb-10">
-    {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-    <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: C.navy, fontFamily: "Georgia, 'Times New Roman', serif" }}>{title}</h2>
-    {desc && <p className="text-base leading-relaxed" style={{ color: C.slate }}>{desc}</p>}
-  </div>
-);
-
-const SimBadge = ({ text }) => (
-  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border"
-    style={{ color: C.orange, borderColor: C.orange, backgroundColor: C.orangeSoft }}>
-    <Info size={12} /> {text}
-  </span>
-);
-
-const RiskDot = ({ level }) => (
-  <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: RISK_COLORS[level] }} />
-);
-
-const Card = ({ children, className = "" }) => (
-  <div className={`bg-white rounded-xl border p-6 ${className}`} style={{ borderColor: C.border }}>{children}</div>
-);
-
-function Tip({ text, children }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <span className="relative inline-flex items-center gap-1 cursor-help" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onClick={() => setOpen(o => !o)}>
-      {children}
-      <Info size={13} style={{ color: C.slateLight }} />
-      {open && (
-        <span className="absolute z-30 top-full mt-2 start-0 w-64 text-xs font-normal leading-relaxed p-3 rounded-lg shadow-lg text-white"
-          style={{ backgroundColor: C.navy }}>
-          {text}
-        </span>
-      )}
-    </span>
-  );
-}
-
-const ICONS = {
-  sprout: Sprout, beef: Beef, shield: Shield, coin: TrendingUp, drop: Droplets, cloud: CloudRain,
-  sun: Sun, wind: Wind, layers: Layers, gauge: Gauge, chart: BarChart3, building: Building2,
-};
 
 /* ============================================================
    MAIN APP
@@ -808,6 +742,9 @@ function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
     return d.toISOString().slice(0, 10);
   };
 
+  const yearStart = (year) => `${year}-01-01`;
+  const yearEnd = (year) => `${year}-12-31`;
+
   const addDays = (date, days) => {
     const d = new Date(date + "T00:00:00Z");
     d.setUTCDate(d.getUTCDate() + days);
@@ -841,11 +778,16 @@ function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
     try {
       const coords = ZONE_COORDS[z];
       const now = today();
-      const pastStart = addYears(now, -5);
-      const futureEnd = addYears(now, 5);
+      const currentYear = Number(now.slice(0, 4));
+      // Exactly five complete calendar years for the historical panel.
+      const pastStart = yearStart(currentYear - 5);
+      const pastEnd = yearEnd(currentYear - 1);
+      // Exactly five complete future calendar years for the climate projection panel.
+      const futureStart = yearStart(currentYear + 1);
+      const futureEnd = yearEnd(currentYear + 5);
       const nearUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=7&forecast_days=16&timezone=auto`;
-      const histUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${pastStart}&end_date=${now}&daily=temperature_2m_mean,precipitation_sum&timezone=auto`;
-      const climateUrl = `https://climate-api.open-meteo.com/v1/climate?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${addDays(now,1)}&end_date=${futureEnd}&models=EC_Earth3P_HR&daily=temperature_2m_mean,precipitation_sum&timezone=auto`;
+      const histUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${pastStart}&end_date=${pastEnd}&daily=temperature_2m_mean,precipitation_sum&timezone=auto`;
+      const climateUrl = `https://climate-api.open-meteo.com/v1/climate?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${futureStart}&end_date=${futureEnd}&models=EC_Earth3P_HR&daily=temperature_2m_mean,precipitation_sum&timezone=auto`;
       const [nearRes, histRes, climateRes] = await Promise.all([fetch(nearUrl), fetch(histUrl), fetch(climateUrl)]);
       if (!nearRes.ok || !histRes.ok || !climateRes.ok) throw new Error("network");
       const [near, hist, climate] = await Promise.all([nearRes.json(), histRes.json(), climateRes.json()]);
@@ -878,8 +820,10 @@ function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
     const tmax = data.daily.temperature_2m_max || [];
     const tmin = data.daily.temperature_2m_min || [];
     const prec = data.daily.precipitation_sum || [];
-    const startIdx = Math.max(0, times.length - 16);
-    return times.slice(startIdx).map((date, k) => {
+    const todayDate = today();
+    const firstFutureIdx = times.findIndex((date) => date >= todayDate);
+    const startIdx = firstFutureIdx >= 0 ? firstFutureIdx : Math.max(0, times.length - 16);
+    return times.slice(startIdx, startIdx + 16).map((date, k) => {
       const i = startIdx + k;
       return { date, tmax: tmax[i], tmin: tmin[i], precip: prec[i] };
     });
@@ -889,11 +833,11 @@ function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
     <Card>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
         <div className="flex items-center gap-2"><CloudRain size={18} style={{ color: C.blue }} /><span className="font-bold text-sm" style={{ color: C.navy }}>{w.title}</span></div>
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-white" style={{ backgroundColor: C.green }}><span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> {w.live}</span>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full text-white shadow-sm" style={{ background: `linear-gradient(135deg, #23A06E, ${C.green})` }}><span className="w-1.5 h-1.5 rounded-full bg-white pulse-dot" /> {w.live}</span>
       </div>
       <div className="flex flex-wrap items-end gap-3 mb-5">
-        <div className="flex-1 min-w-[160px]"><label className="text-xs font-semibold mb-1.5 block" style={{ color: C.navy }}>{w.zoneLabel}</label><select value={zone} onChange={(e) => setZone(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm" style={{ borderColor: C.border, color: C.navy }}>{ZONES.map(z => <option key={z} value={z}>{lang === "ar" ? ZONE_AR[z] : z}</option>)}</select></div>
-        <button onClick={() => fetchWeather(zone)} className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border" style={{ borderColor: C.blue, color: C.blue }}><Repeat size={13} /> {w.refresh}</button>
+        <div className="flex-1 min-w-[160px]"><label className="text-xs font-semibold mb-1.5 block" style={{ color: C.navy }}>{w.zoneLabel}</label><select value={zone} onChange={(e) => setZone(e.target.value)} className="select-polished w-full border rounded-lg px-3 py-2 text-sm bg-white" style={{ borderColor: C.border, color: C.navy }}>{ZONES.map(z => <option key={z} value={z}>{lang === "ar" ? ZONE_AR[z] : z}</option>)}</select></div>
+        <button onClick={() => fetchWeather(zone)} className="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all duration-300 hover:-translate-y-px hover:shadow-md" style={{ borderColor: `${C.blue}55`, color: C.blue, backgroundColor: C.blueSoft }}><Repeat size={13} /> {w.refresh}</button>
       </div>
       <div className="text-xs mb-4" style={{ color: C.slateLight }}>{w.capital}: {ZONE_COORDS[zone].capital}</div>
       {loading && <p className="text-sm" style={{ color: C.slate }}>{w.loading}</p>}
@@ -910,13 +854,13 @@ function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
 
         <div className="border-t pt-5 mb-6" style={{ borderColor: C.border }}>
           <div className="text-sm font-bold mb-2" style={{ color: C.navy }}>{w.past5Title}</div>
-          <p className="text-xs mb-3" style={{ color: C.slateLight }}>{w.yearly}</p>
+          <p className="text-xs mb-3" style={{ color: C.slateLight }}>{w.yearly} · {history.length} années complètes</p>
           <div className="h-56"><ResponsiveContainer width="100%" height="100%"><LineChart data={history}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="year" /><YAxis yAxisId="temp" /><YAxis yAxisId="rain" orientation="right" /><Tooltip /><Legend /><Line yAxisId="temp" type="monotone" dataKey="temp" name={w.tempYear + " (°C)"} /><Line yAxisId="rain" type="monotone" dataKey="rain" name={w.rainYear + " (mm)"} /></LineChart></ResponsiveContainer></div>
         </div>
 
         <div className="border-t pt-5" style={{ borderColor: C.border }}>
           <div className="text-sm font-bold mb-2" style={{ color: C.navy }}>{w.future5Title}</div>
-          <p className="text-xs mb-3" style={{ color: C.slateLight }}>{w.futureNote}</p>
+          <p className="text-xs mb-3" style={{ color: C.slateLight }}>{w.futureNote} · {projection.length} années complètes</p>
           <div className="h-56"><ResponsiveContainer width="100%" height="100%"><LineChart data={projection}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="year" /><YAxis yAxisId="temp" /><YAxis yAxisId="rain" orientation="right" /><Tooltip /><Legend /><Line yAxisId="temp" type="monotone" dataKey="temp" name={w.tempYear + " (°C)"} /><Line yAxisId="rain" type="monotone" dataKey="rain" name={w.rainYear + " (mm)"} /></LineChart></ResponsiveContainer></div>
         </div>
 
@@ -932,6 +876,9 @@ export default function ParametricInsurancePlatform() {
   const [paramTab, setParamTab] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
   const [resultsTab, setResultsTab] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [activeSection, setActiveSection] = useState("home");
 
   // Simulator state
   const [sector, setSector] = useState("agri");
@@ -951,7 +898,41 @@ export default function ParametricInsurancePlatform() {
   const [wNdvi, setWNdvi] = useState(30);
   const [wHumid, setWHumid] = useState(30);
 
+  // Hypothèses financières + équipe (Supabase / localStorage)
+  const [assumptions, setAssumptions] = useState(DEFAULT_ASSUMPTIONS);
+  const [team, setTeam] = useState([]);
+
+  // Espace superviseur — 5 clics rapides sur le logo
+  const [adminOpen, setAdminOpen] = useState(false);
+  const clickCount = useRef(0);
+  const clickTimer = useRef(null);
+  const [logoPulse, setLogoPulse] = useState(false);
+
+  const handleLogoClick = () => {
+    scrollTo("home");
+    clickCount.current += 1;
+    setLogoPulse(true);
+    setTimeout(() => setLogoPulse(false), 350);
+    clearTimeout(clickTimer.current);
+    clickTimer.current = setTimeout(() => { clickCount.current = 0; }, 1600);
+    if (clickCount.current >= 5) {
+      clickCount.current = 0;
+      setAdminOpen(true);
+    }
+  };
+
+  useEffect(() => {
+    loadAssumptions().then(setAssumptions);
+    loadTeam().then(setTeam);
+  }, []);
+
+  const handleSaveAssumptions = async (draft, authed) => {
+    setAssumptions({ ...draft });
+    await saveAssumptions(draft, authed);
+  };
+
   const t = T[lang];
+  const x = EXT[lang];
   const dir = t.dir;
   const RISK_LABELS = lang === "ar" ? RISK_LABELS_AR : RISK_LABELS_FR;
 
@@ -964,10 +945,14 @@ export default function ParametricInsurancePlatform() {
   const ratio = useMemo(() => (commercialPremium > 0 ? indemnAmount / commercialPremium : 0), [indemnAmount, commercialPremium]);
 
   const navItems = [
-    ["home", t.nav.home], ["etude", t.nav.etude], ["risques", t.nav.risques],
-    ["parametrique", t.nav.parametrique], ["agricole", t.nav.agricole], ["elevage", t.nav.elevage],
-    ["simulateur", t.nav.simulateur], ["resultats", t.nav.resultats], ["methodologie", t.nav.methodologie],
-    ["apropos", t.nav.apropos],
+    ["home", t.nav.home], ["dashboard", x.nav.dashboard], ["etude", t.nav.etude],
+    ["marche", x.nav.marche], ["risques", t.nav.risques],
+    ["parametrique", t.nav.parametrique], ["technique", x.nav.technique],
+    ["financier", x.nav.financier], ["declenchement", lang === "ar" ? "التفعيل" : "Déclenchement"],
+    ["simulateur", t.nav.simulateur], ["scenarios", x.nav.scenarios],
+    ["sensibilite", x.nav.sensibilite], ["resultats", t.nav.resultats],
+    ["equipe", x.nav.equipe], ["methodologie", t.nav.methodologie],
+    ["conclusion", x.nav.conclusion], ["apropos", t.nav.apropos],
   ];
 
   const scrollTo = (id) => {
@@ -976,23 +961,67 @@ export default function ParametricInsurancePlatform() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  /* document lang/dir + scroll state */
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = dir;
+  }, [lang, dir]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 24);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setScrollProgress(max > 0 ? Math.min(100, (y / max) * 100) : 0);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  /* scrollspy */
+  useEffect(() => {
+    const spy = new IntersectionObserver(
+      (entries) => entries.forEach((e) => e.isIntersecting && setActiveSection(e.target.id)),
+      { rootMargin: "-40% 0px -55% 0px" }
+    );
+    navItems.forEach(([id]) => {
+      const el = document.getElementById(id);
+      if (el) spy.observe(el);
+    });
+    return () => spy.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
+
   return (
-    <div dir={dir} style={{ backgroundColor: C.ivory, color: C.ink, fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif" }} className="min-h-screen w-full">
+    <div dir={dir} style={{ backgroundColor: C.ivory, color: C.ink, fontFamily: "var(--font-body)" }} className="min-h-screen w-full">
 
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 bg-white border-b" style={{ borderColor: C.border }}>
+      <header
+        className={`sticky top-0 z-40 transition-all duration-300 ${scrolled ? "shadow-[0_10px_36px_-16px_rgba(11,30,57,0.25)]" : ""}`}
+        style={{
+          backgroundColor: scrolled ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.72)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          borderBottom: `1px solid ${scrolled ? "transparent" : C.border}`,
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
-          <button onClick={() => scrollTo("home")} className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded-md flex items-center justify-center" style={{ backgroundColor: C.navy }}>
-              <Shield size={16} color={C.white} />
+          <button onClick={handleLogoClick} className={`flex items-center gap-2.5 shrink-0 group transition-transform duration-300 ${logoPulse ? "scale-95" : ""}`} aria-label="APC Mauritanie">
+            <div className="transition-transform duration-300 group-hover:scale-105 group-hover:rotate-3 rounded-xl"
+              style={{ boxShadow: logoPulse ? `0 0 0 3px ${C.gold}55` : "none", borderRadius: 12 }}>
+              <Logo variant="compact" theme="dark" size={38} />
             </div>
-            <span className="font-bold text-sm hidden sm:block" style={{ color: C.navy }}>APC · Mauritanie</span>
+            <span className="hidden sm:flex flex-col items-start leading-none">
+              <span className="font-extrabold text-[13px] tracking-tight whitespace-nowrap" style={{ color: C.navy }}>APC · Mauritanie</span>
+              <span className="text-[9.5px] font-semibold tracking-[0.14em] uppercase mt-1 whitespace-nowrap" style={{ color: C.gold }}>{t.badgeAcademicShort}</span>
+            </span>
           </button>
 
-          <nav className="hidden lg:flex items-center gap-1 overflow-x-auto">
+          <nav className="hidden lg:flex items-center gap-0 overflow-x-auto min-w-0 flex-1 justify-center px-1">
             {navItems.map(([id, label]) => (
               <button key={id} onClick={() => scrollTo(id)}
-                className="px-3 py-2 text-sm font-medium rounded-md whitespace-nowrap hover:bg-gray-50 transition-colors"
+                className={`nav-link px-2 py-2 text-[11.5px] xl:text-[12px] font-medium rounded-lg whitespace-nowrap ${activeSection === id ? "active" : ""}`}
                 style={{ color: C.slate }}>
                 {label}
               </button>
@@ -1002,21 +1031,28 @@ export default function ParametricInsurancePlatform() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setLang(l => (l === "fr" ? "ar" : "fr"))}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border"
-              style={{ borderColor: C.blue, color: C.blue }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold border transition-all duration-300 hover:shadow-md hover:-translate-y-px whitespace-nowrap"
+              style={{ borderColor: `${C.blue}66`, color: C.blue, backgroundColor: `${C.blueSoft}80` }}
             >
               <Globe size={13} />
               {lang === "fr" ? "FR | العربية" : "العربية | FR"}
             </button>
-            <button className="lg:hidden p-2" onClick={() => setMenuOpen(o => !o)}>
+            <button className="lg:hidden p-2 rounded-lg transition-colors hover:bg-black/5" style={{ color: C.navy }} onClick={() => setMenuOpen(o => !o)}>
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
         </div>
+
+        {/* reading progress */}
+        <div className="absolute bottom-0 start-0 h-[2.5px] rounded-full transition-[width] duration-150"
+          style={{ width: `${scrollProgress}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.goldLight})` }} />
+
         {menuOpen && (
-          <div className="lg:hidden border-t px-4 py-3 flex flex-col gap-1 bg-white" style={{ borderColor: C.border }}>
+          <div className="lg:hidden border-t px-4 py-3 flex flex-col gap-1" style={{ borderColor: C.border, backgroundColor: "rgba(255,255,255,0.96)", backdropFilter: "blur(14px)" }}>
             {navItems.map(([id, label]) => (
-              <button key={id} onClick={() => scrollTo(id)} className="text-start px-2 py-2.5 text-sm font-medium rounded-md hover:bg-gray-50" style={{ color: C.slate }}>
+              <button key={id} onClick={() => scrollTo(id)}
+                className={`text-start px-3 py-2.5 text-sm font-medium rounded-lg transition-colors hover:bg-black/5 ${activeSection === id ? "bg-black/5" : ""}`}
+                style={{ color: activeSection === id ? C.navy : C.slate }}>
                 {label}
               </button>
             ))}
@@ -1025,45 +1061,120 @@ export default function ParametricInsurancePlatform() {
       </header>
 
       {/* HERO */}
-      <section id="home" className="relative overflow-hidden" style={{ backgroundColor: C.navy }}>
-        <div className="absolute inset-0 opacity-[0.06]" style={{
-          backgroundImage: `radial-gradient(circle at 20% 20%, ${C.white} 1px, transparent 1px)`,
-          backgroundSize: "26px 26px"
+      <section id="home" className="relative overflow-hidden" style={{ backgroundColor: C.navyDeep }}>
+        {/* layered background */}
+        <div className="absolute inset-0" style={{ background: `linear-gradient(155deg, ${C.navyDeep} 0%, ${C.navy} 48%, ${C.navyLight} 100%)` }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(52rem 30rem at 85% -10%, rgba(176,138,62,0.22), transparent 62%)" }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(46rem 28rem at -12% 112%, rgba(59,111,174,0.30), transparent 62%)" }} />
+        <div className="absolute inset-0 opacity-[0.13]" style={{
+          backgroundImage: "linear-gradient(rgba(255,255,255,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.14) 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
+          maskImage: "radial-gradient(ellipse 85% 75% at 50% 28%, black 25%, transparent 78%)",
+          WebkitMaskImage: "radial-gradient(ellipse 85% 75% at 50% 28%, black 25%, transparent 78%)",
         }} />
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-24 relative">
-          <span className="inline-block text-xs font-semibold px-3 py-1.5 rounded-full mb-6 border" style={{ color: C.gold, borderColor: C.gold }}>
+        {/* floating orbs */}
+        <div className="absolute -top-24 -end-24 w-96 h-96 rounded-full float-slow pointer-events-none" style={{ background: "radial-gradient(circle, rgba(217,188,122,0.16), transparent 65%)", filter: "blur(8px)" }} />
+        <div className="absolute bottom-0 -start-32 w-[28rem] h-[28rem] rounded-full float-slower pointer-events-none" style={{ background: "radial-gradient(circle, rgba(59,111,174,0.22), transparent 65%)", filter: "blur(8px)" }} />
+        {/* contour rings */}
+        <svg className="absolute top-1/2 -translate-y-1/2 end-0 hidden lg:block pointer-events-none" width="520" height="520" viewBox="0 0 520 520" fill="none" style={{ opacity: 0.5 }}>
+          {[90, 150, 210, 268].map((r) => (
+            <circle key={r} cx="420" cy="260" r={r} stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
+          ))}
+          <circle cx="420" cy="260" r="150" stroke="rgba(217,188,122,0.28)" strokeWidth="1" strokeDasharray="3 7" />
+          <circle cx="558" cy="146" r="5" fill={C.goldLight} opacity="0.85" />
+          <circle cx="300" cy="408" r="4" fill="#5B87C4" opacity="0.9" />
+          <circle cx="262" cy="176" r="3" fill="rgba(255,255,255,0.5)" />
+        </svg>
+
+        <div className="max-w-7xl mx-auto px-4 md:px-8 pt-16 md:pt-24 pb-20 md:pb-28 relative">
+          <span className="hero-rise inline-flex items-center gap-2 text-[11px] md:text-xs font-bold tracking-wide px-4 py-2 rounded-full mb-7 border" style={{ color: C.goldLight, borderColor: "rgba(176,138,62,0.4)", backgroundColor: "rgba(176,138,62,0.1)" }}>
+            <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: C.goldLight }} />
             {t.hero.kicker}
           </span>
-          <h1 className="text-3xl md:text-5xl font-bold max-w-4xl leading-tight mb-4" style={{ color: C.white, fontFamily: "Georgia, 'Times New Roman', serif" }}>
+
+          <h1 className="hero-rise-1 text-4xl md:text-6xl font-bold max-w-4xl leading-[1.12] md:leading-[1.05] tracking-tight mb-5" style={{ color: C.white, fontFamily: "var(--font-display)" }}>
             {t.hero.title}
           </h1>
-          <p className="text-lg md:text-xl max-w-2xl mb-4" style={{ color: C.blueSoft }}>{t.hero.subtitle}</p>
-          <p className="max-w-2xl text-sm md:text-base leading-relaxed mb-8" style={{ color: "#B9C6DA" }}>{t.hero.desc}</p>
+          <p className="hero-rise-2 text-lg md:text-2xl max-w-2xl mb-4 font-semibold text-gradient-gold" style={{ fontFamily: lang === "ar" ? "var(--font-display)" : undefined }}>{t.hero.subtitle}</p>
+          <p className="hero-rise-3 max-w-2xl text-sm md:text-base leading-relaxed mb-9" style={{ color: "#A9BBD4" }}>{t.hero.desc}</p>
 
-          <div className="flex flex-wrap gap-3 mb-14">
-            <button onClick={() => scrollTo("etude")} className="px-5 py-3 rounded-lg font-semibold text-sm flex items-center gap-2" style={{ backgroundColor: C.white, color: C.navy }}>
+          <div className="hero-rise-4 flex flex-wrap gap-3 mb-12">
+            <button onClick={() => scrollTo("etude")} className="btn-gold px-6 py-3.5 rounded-xl font-bold text-sm flex items-center gap-2" style={{ background: `linear-gradient(120deg, ${C.goldLight}, ${C.gold})`, color: C.navyDeep }}>
               {t.hero.cta1} <ArrowRight size={16} className={dir === "rtl" ? "rotate-180" : ""} />
             </button>
-            <button onClick={() => scrollTo("simulateur")} className="px-5 py-3 rounded-lg font-semibold text-sm flex items-center gap-2 border" style={{ borderColor: "#3A4F72", color: C.white }}>
+            <button onClick={() => scrollTo("simulateur")} className="btn-ghost-light px-6 py-3.5 rounded-xl font-semibold text-sm flex items-center gap-2 border" style={{ borderColor: "rgba(255,255,255,0.28)", color: C.white }}>
               <Calculator size={16} /> {t.hero.cta2}
+            </button>
+            <button onClick={() => scrollTo("dashboard")} className="btn-ghost-light px-6 py-3.5 rounded-xl font-semibold text-sm flex items-center gap-2 border" style={{ borderColor: "rgba(255,255,255,0.28)", color: C.white }}>
+              <Gauge size={16} /> {x.hero.cta3}
+            </button>
+            <button onClick={() => scrollTo("financier")} className="btn-ghost-light px-6 py-3.5 rounded-xl font-semibold text-sm flex items-center gap-2 border" style={{ borderColor: "rgba(255,255,255,0.28)", color: C.white }}>
+              <Banknote size={16} /> {x.hero.cta4}
             </button>
           </div>
 
-          {/* Flow strip - signature element */}
-          <div className="flex flex-wrap items-center gap-2 md:gap-0">
-            {t.hero.flow.map((step, i) => (
-              <React.Fragment key={i}>
-                <div className="px-3 py-2 rounded-lg text-xs md:text-sm font-medium border" style={{ borderColor: "#2C4468", color: C.white, backgroundColor: "rgba(255,255,255,0.03)" }}>
-                  {step}
-                </div>
-                {i < t.hero.flow.length - 1 && (
-                  <ChevronRight size={16} style={{ color: C.gold }} className={dir === "rtl" ? "rotate-180 mx-1" : "mx-1"} />
-                )}
-              </React.Fragment>
+          {/* Chaîne paramétrique animée : Risque → Indice → Déclenchement → Indemnisation */}
+          <div className="hero-rise-4 mb-12">
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] mb-3" style={{ color: C.goldLight }}>{x.hero.chainTitle}</div>
+            <div className="flex flex-wrap items-center gap-2">
+              {x.hero.chain.map((step, i) => {
+                const ChainIcon = [CloudLightning, Gauge, Zap, Banknote][i];
+                return (
+                  <React.Fragment key={i}>
+                    <div className="chain-step flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold border"
+                      style={{
+                        animationDelay: `${i * 0.45}s`,
+                        borderColor: "rgba(217,188,122,0.35)",
+                        color: C.white,
+                        background: `linear-gradient(140deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03))`,
+                      }}>
+                      <ChainIcon size={15} style={{ color: C.goldLight }} />
+                      {step}
+                    </div>
+                    {i < x.hero.chain.length - 1 && <ChevronRight size={15} style={{ color: C.gold }} className={dir === "rtl" ? "rotate-180" : ""} />}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* stats */}
+          <div className="hero-rise-4 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-7 mb-12 max-w-3xl">
+            {t.hero.stats.map(([v, l], i) => (
+              <div key={i} className="border-s-2 ps-4" style={{ borderColor: "rgba(176,138,62,0.45)" }}>
+                <div className="text-2xl md:text-[2rem] font-bold leading-none" style={{ color: C.white, fontFamily: "var(--font-display)" }}>{v}</div>
+                <div className="text-[11px] md:text-xs mt-2 font-medium" style={{ color: "#93A7C4" }}>{l}</div>
+              </div>
             ))}
           </div>
+
+          {/* Flow strip — signature element */}
+          <div className="hero-rise-5 rounded-2xl p-4 md:p-5 border" style={{ borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.045)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
+            <div className="flex flex-wrap items-center gap-2">
+              {t.hero.flow.map((step, i) => (
+                <React.Fragment key={i}>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs md:text-sm font-medium border" style={{ borderColor: "rgba(255,255,255,0.1)", color: C.white, backgroundColor: "rgba(255,255,255,0.06)" }}>
+                    <span className="w-4.5 h-4.5 min-w-[18px] min-h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: "rgba(176,138,62,0.22)", color: C.goldLight }}>{i + 1}</span>
+                    {step}
+                  </div>
+                  {i < t.hero.flow.length - 1 && (
+                    <ChevronRight size={15} style={{ color: C.gold }} className={dir === "rtl" ? "rotate-180" : ""} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {/* scroll cue */}
+        <button onClick={() => scrollTo("etude")} aria-label="scroll" className="absolute bottom-4 left-1/2 -translate-x-1/2 hidden md:flex bounce-soft" style={{ color: "#7E93B5" }}>
+          <ChevronDown size={22} />
+        </button>
+        <div className="absolute bottom-0 inset-x-0 divider-glow" />
       </section>
+
+      {/* DASHBOARD KPI */}
+      <KpiDashboard x={x.dashboard} badges={x.badges} lang={lang} assumptions={assumptions} />
 
       {/* ETUDE */}
       <section id="etude" className="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-20">
@@ -1076,31 +1187,36 @@ export default function ParametricInsurancePlatform() {
             {t.etude.impacts.map((im, i) => {
               const Icon = ICONS[im.icon] || Info;
               return (
-                <div key={i} className="rounded-lg p-4 border" style={{ borderColor: C.border, backgroundColor: C.ivory }}>
-                  <Icon size={18} style={{ color: C.blue }} />
-                  <div className="font-semibold text-sm mt-2" style={{ color: C.navy }}>{im.label}</div>
-                  <div className="text-xs mt-1" style={{ color: C.slate }}>{im.text}</div>
+                <div key={i} className="rounded-xl p-4 border transition-colors hover:bg-white" style={{ borderColor: C.border, backgroundColor: C.ivory }}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: C.blueSoft }}>
+                    <Icon size={17} style={{ color: C.blue }} />
+                  </div>
+                  <div className="font-semibold text-sm" style={{ color: C.navy }}>{im.label}</div>
+                  <div className="text-xs mt-1 leading-relaxed" style={{ color: C.slate }}>{im.text}</div>
                 </div>
               );
             })}
           </div>
         </Card>
 
-        <div className="rounded-xl p-6 md:p-8 mb-8 border-s-4" style={{ backgroundColor: C.blueSoft, borderColor: C.blue }}>
-          <div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: C.blue }}>{t.etude.questionTitle}</div>
-          <p className="text-base md:text-lg font-medium leading-relaxed" style={{ color: C.navy }}>{t.etude.question}</p>
-        </div>
+        <Reveal className="rounded-2xl p-6 md:p-8 mb-8 border-s-4 shadow-[0_10px_32px_-20px_rgba(27,78,140,0.35)]" style={{ background: `linear-gradient(120deg, ${C.blueSoft}, #F4F8FE)`, borderColor: C.blue }}>
+          <div className="text-[11px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: C.blue }}>{t.etude.questionTitle}</div>
+          <p className="text-base md:text-xl font-semibold leading-relaxed" style={{ color: C.navy, fontFamily: lang === "ar" ? "var(--font-body)" : "var(--font-display)" }}>{t.etude.question}</p>
+        </Reveal>
 
         <h3 className="text-lg font-bold mb-4" style={{ color: C.navy }}>{t.etude.objTitle}</h3>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {t.etude.objectives.map((o, i) => (
-            <Card key={i} className="flex items-start gap-3">
-              <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: C.navy, color: C.white }}>{i + 1}</span>
+            <Card key={i} className="flex items-start gap-3.5">
+              <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-sm" style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, color: C.goldLight, border: `1px solid ${C.gold}44` }}>{i + 1}</span>
               <p className="text-sm leading-relaxed" style={{ color: C.slate }}>{o}</p>
             </Card>
           ))}
         </div>
       </section>
+
+      {/* MARCHÉ */}
+      <MarcheSection x={x.marche} lang={lang} badges={x.badges} />
 
       {/* RISQUES */}
       <section id="risques" className="py-16 md:py-20" style={{ backgroundColor: C.white }}>
@@ -1116,11 +1232,13 @@ export default function ParametricInsurancePlatform() {
               return (
                 <Card key={i}>
                   <div className="flex items-center justify-between mb-3">
-                    <Icon size={20} style={{ color: C.blue }} />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: C.blueSoft }}>
+                      <Icon size={19} style={{ color: C.blue }} />
+                    </div>
                     <RiskDot level={c.level} />
                   </div>
                   <div className="font-semibold text-sm mb-1" style={{ color: C.navy }}>{c.title}</div>
-                  <div className="text-xs" style={{ color: C.slate }}>{c.value}</div>
+                  <div className="text-xs leading-relaxed" style={{ color: C.slate }}>{c.value}</div>
                 </Card>
               );
             })}
@@ -1172,8 +1290,8 @@ export default function ParametricInsurancePlatform() {
         <div className="flex flex-wrap gap-2 mb-8">
           {t.parametrique.tabs.map((tab, i) => (
             <button key={i} onClick={() => setParamTab(i)}
-              className="px-4 py-2 rounded-full text-sm font-medium border transition-colors"
-              style={paramTab === i ? { backgroundColor: C.navy, borderColor: C.navy, color: C.white } : { borderColor: C.border, color: C.slate }}>
+              className="px-4 py-2 rounded-full text-sm font-medium border transition-all duration-300 hover:-translate-y-px"
+              style={paramTab === i ? { background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, borderColor: C.navy, color: C.white, boxShadow: "0 8px 18px -8px rgba(11,30,57,0.5)" } : { borderColor: C.border, color: C.slate, backgroundColor: C.white }}>
               {tab}
             </button>
           ))}
@@ -1184,7 +1302,7 @@ export default function ParametricInsurancePlatform() {
           <Card>
             <h3 className="text-lg font-bold mb-4" style={{ color: C.navy }}>{t.comparaison.title}</h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="tbl w-full text-sm">
                 <thead>
                   <tr style={{ backgroundColor: C.navy }}>
                     {t.comparaison.head.map((h, i) => (
@@ -1221,7 +1339,7 @@ export default function ParametricInsurancePlatform() {
               </div>
             </div>
             <div className="overflow-x-auto mb-4">
-              <table className="w-full text-sm">
+              <table className="tbl w-full text-sm">
                 <thead>
                   <tr style={{ backgroundColor: C.blueSoft }}>
                     {t.parametrique.trigger.head.map((h, i) => (
@@ -1281,7 +1399,7 @@ export default function ParametricInsurancePlatform() {
                     <div className="flex justify-between text-xs mb-1" style={{ color: C.slate }}>
                       <span>{t.parametrique.composite.agriParts[i][0]}</span><span className="font-semibold">{val}%</span>
                     </div>
-                    <input type="range" min={0} max={100} value={val} onChange={(e) => setter(Number(e.target.value))} className="w-full accent-blue-700" />
+                    <input type="range" min={0} max={100} value={val} onChange={(e) => setter(Number(e.target.value))} className="w-full" style={{ "--val": `${val}%` }} />
                   </div>
                 ))}
                 <div className="text-xs mt-2" style={{ color: (wPrecip + wNdvi + wHumid) === 100 ? C.green : C.orange }}>
@@ -1342,7 +1460,7 @@ export default function ParametricInsurancePlatform() {
               {t.parametrique.timeline.steps.map((s, i) => (
                 <React.Fragment key={i}>
                   <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-2 md:flex-1">
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0" style={{ backgroundColor: C.navy, color: C.white }}>{i + 1}</div>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 shadow-md" style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, color: C.goldLight, border: `1px solid ${C.gold}44` }}>{i + 1}</div>
                     <div className="text-sm font-medium" style={{ color: C.navy }}>{s}</div>
                   </div>
                   {i < t.parametrique.timeline.steps.length - 1 && (
@@ -1356,6 +1474,15 @@ export default function ParametricInsurancePlatform() {
           </Card>
         )}
       </section>
+
+      {/* ÉTUDE TECHNIQUE */}
+      <TechniqueSection x={x.technique} lang={lang} dir={dir} />
+
+      {/* ÉTUDE FINANCIÈRE */}
+      <FinanceSection x={x.financier} lang={lang} badges={x.badges} assumptions={assumptions} />
+
+      {/* MODÈLE DE DÉCLENCHEMENT */}
+      <TriggerSimulator x={x.declenchement} lang={lang} />
 
       {/* AGRICOLE */}
       <section id="agricole" className="py-16 md:py-20" style={{ backgroundColor: C.white }}>
@@ -1376,7 +1503,7 @@ export default function ParametricInsurancePlatform() {
             </Card>
             <Card className="flex flex-col items-start justify-between">
               <div className="text-sm" style={{ color: C.slate }}>APA — Assurance Paramétrique Agricole</div>
-              <button onClick={() => scrollTo("simulateur")} className="mt-4 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" style={{ backgroundColor: C.navy, color: C.white }}>
+              <button onClick={() => scrollTo("simulateur")} className="btn-navy mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2" style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, color: C.white }}>
                 {t.agricole.cta} <ArrowRight size={14} className={dir === "rtl" ? "rotate-180" : ""} />
               </button>
             </Card>
@@ -1399,7 +1526,7 @@ export default function ParametricInsurancePlatform() {
               {t.elevage.ispScale.map((s, i) => {
                 const colors = [C.green, "#D6A61A", C.orange, "#C4501F", C.red];
                 return (
-                  <div key={i} className="flex-1 text-center rounded-lg py-2.5 text-xs font-semibold" style={{ backgroundColor: colors[i], color: C.white }}>
+                  <div key={i} className="flex-1 text-center rounded-lg py-2.5 text-xs font-semibold shadow-sm transition-transform duration-300 hover:scale-[1.04]" style={{ background: `linear-gradient(160deg, ${colors[i]}, ${colors[i]}DD)`, color: C.white }}>
                     {s}
                   </div>
                 );
@@ -1408,7 +1535,7 @@ export default function ParametricInsurancePlatform() {
           </Card>
           <Card className="flex flex-col items-start justify-between">
             <div className="text-sm" style={{ color: C.slate }}>APP — Assurance Paramétrique Pastorale</div>
-            <button onClick={() => scrollTo("simulateur")} className="mt-4 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" style={{ backgroundColor: C.navy, color: C.white }}>
+            <button onClick={() => scrollTo("simulateur")} className="btn-navy mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2" style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, color: C.white }}>
               {t.elevage.cta} <ArrowRight size={14} className={dir === "rtl" ? "rotate-180" : ""} />
             </button>
           </Card>
@@ -1416,26 +1543,34 @@ export default function ParametricInsurancePlatform() {
       </section>
 
       {/* SIMULATEUR */}
-      <section id="simulateur" className="py-16 md:py-20" style={{ backgroundColor: C.navy }}>
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="max-w-3xl mb-10">
-            <Eyebrow>{t.simulateur.eyebrow}</Eyebrow>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white" style={{ fontFamily: "Georgia, serif" }}>{t.simulateur.title}</h2>
-            <p className="text-sm md:text-base" style={{ color: "#B9C6DA" }}>{t.simulateur.intro}</p>
-          </div>
+      <section id="simulateur" className="relative py-20 md:py-24 overflow-hidden" style={{ backgroundColor: C.navyDeep }}>
+        <div className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${C.navyDeep} 0%, ${C.navy} 55%, ${C.navyLight} 100%)` }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(42rem 26rem at 92% -5%, rgba(176,138,62,0.15), transparent 62%)" }} />
+        <div className="absolute inset-0 opacity-[0.1]" style={{
+          backgroundImage: "linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
+          maskImage: "radial-gradient(ellipse 80% 70% at 50% 15%, black 20%, transparent 78%)",
+          WebkitMaskImage: "radial-gradient(ellipse 80% 70% at 50% 15%, black 20%, transparent 78%)",
+        }} />
+        <div className="max-w-7xl mx-auto px-4 md:px-8 relative">
+          <Reveal className="max-w-3xl mb-10 md:mb-12">
+            <Eyebrow light>{t.simulateur.eyebrow}</Eyebrow>
+            <h2 className="text-3xl md:text-[2.6rem] md:leading-[1.15] font-bold mb-4 text-white" style={{ fontFamily: "var(--font-display)" }}>{t.simulateur.title}</h2>
+            <p className="text-sm md:text-base leading-relaxed" style={{ color: "#A9BBD4" }}>{t.simulateur.intro}</p>
+          </Reveal>
 
           <div className="grid lg:grid-cols-5 gap-6">
             {/* Inputs */}
-            <div className="lg:col-span-2 bg-white rounded-xl p-6 h-fit">
+            <div className="lg:col-span-2 bg-white rounded-2xl p-6 h-fit shadow-[0_28px_64px_-28px_rgba(0,0,0,0.55)]">
               <div className="mb-5">
                 <label className="text-xs font-semibold mb-2 block" style={{ color: C.navy }}>{t.simulateur.sector}</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setSector("agri")} className="py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 border"
-                    style={sector === "agri" ? { backgroundColor: C.navy, color: C.white, borderColor: C.navy } : { borderColor: C.border, color: C.slate }}>
+                  <button onClick={() => setSector("agri")} className="py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 border transition-all duration-300"
+                    style={sector === "agri" ? { background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, color: C.white, borderColor: C.navy, boxShadow: "0 10px 20px -10px rgba(11,30,57,0.55)" } : { borderColor: C.border, color: C.slate }}>
                     <Sprout size={14} /> {t.simulateur.sectorAgri}
                   </button>
-                  <button onClick={() => setSector("elevage")} className="py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 border"
-                    style={sector === "elevage" ? { backgroundColor: C.navy, color: C.white, borderColor: C.navy } : { borderColor: C.border, color: C.slate }}>
+                  <button onClick={() => setSector("elevage")} className="py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 border transition-all duration-300"
+                    style={sector === "elevage" ? { background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, color: C.white, borderColor: C.navy, boxShadow: "0 10px 20px -10px rgba(11,30,57,0.55)" } : { borderColor: C.border, color: C.slate }}>
                     <Beef size={14} /> {t.simulateur.sectorElevage}
                   </button>
                 </div>
@@ -1443,7 +1578,7 @@ export default function ParametricInsurancePlatform() {
 
               <div className="mb-5">
                 <label className="text-xs font-semibold mb-2 block" style={{ color: C.navy }}>{t.simulateur.zone}</label>
-                <select value={zone} onChange={(e) => setZone(e.target.value)} className="w-full border rounded-lg px-3 py-2.5 text-sm" style={{ borderColor: C.border, color: C.navy }}>
+                <select value={zone} onChange={(e) => setZone(e.target.value)} className="select-polished w-full border rounded-lg px-3 py-2.5 text-sm bg-white" style={{ borderColor: C.border, color: C.navy }}>
                   {ZONES.map(z => <option key={z} value={z}>{lang === "ar" ? ZONE_AR[z] : z}</option>)}
                 </select>
               </div>
@@ -1451,26 +1586,26 @@ export default function ParametricInsurancePlatform() {
               <div className="mb-5">
                 <label className="text-xs font-semibold mb-2 block" style={{ color: C.navy }}>{t.simulateur.capital}</label>
                 <input type="number" value={capital} min={0} step={1000} onChange={(e) => setCapital(Number(e.target.value) || 0)}
-                  className="w-full border rounded-lg px-3 py-2.5 text-sm" style={{ borderColor: C.border, color: C.navy }} />
+                  className="input-polished w-full border rounded-lg px-3 py-2.5 text-sm" style={{ borderColor: C.border, color: C.navy }} />
               </div>
 
               <div className="mb-5">
-                <div className="flex justify-between text-xs font-semibold mb-2" style={{ color: C.navy }}>
-                  <span>{t.simulateur.index}</span><span>{climateIndex}%</span>
+                <div className="flex justify-between text-xs font-semibold mb-2.5" style={{ color: C.navy }}>
+                  <span>{t.simulateur.index}</span><span className="px-2 py-0.5 rounded-md text-[11px] font-bold" style={{ backgroundColor: C.blueSoft, color: C.blue }}>{climateIndex}%</span>
                 </div>
-                <input type="range" min={0} max={100} value={climateIndex} onChange={(e) => setClimateIndex(Number(e.target.value))} className="w-full accent-blue-700" />
+                <input type="range" min={0} max={100} value={climateIndex} onChange={(e) => setClimateIndex(Number(e.target.value))} className="w-full" style={{ "--val": `${climateIndex}%` }} />
               </div>
 
               <div className="mb-2">
-                <div className="flex justify-between text-xs font-semibold mb-2" style={{ color: C.navy }}>
-                  <span>{t.simulateur.coverage}</span><span>{coverage}%</span>
+                <div className="flex justify-between text-xs font-semibold mb-2.5" style={{ color: C.navy }}>
+                  <span>{t.simulateur.coverage}</span><span className="px-2 py-0.5 rounded-md text-[11px] font-bold" style={{ backgroundColor: C.blueSoft, color: C.blue }}>{coverage}%</span>
                 </div>
-                <input type="range" min={0} max={100} value={coverage} onChange={(e) => setCoverage(Number(e.target.value))} className="w-full accent-blue-700" />
+                <input type="range" min={0} max={100} value={coverage} onChange={(e) => setCoverage(Number(e.target.value))} className="w-full" style={{ "--val": `${coverage}%` }} />
               </div>
             </div>
 
             {/* Results */}
-            <div className="lg:col-span-3 bg-white rounded-xl p-6">
+            <div className="lg:col-span-3 bg-white rounded-2xl p-6 shadow-[0_28px_64px_-28px_rgba(0,0,0,0.55)]">
               <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
                 <div className="flex items-center gap-2 font-bold" style={{ color: C.navy }}>
                   <Gauge size={18} /> {t.simulateur.resultTitle}
@@ -1479,34 +1614,34 @@ export default function ParametricInsurancePlatform() {
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                <div className="rounded-lg p-4" style={{ backgroundColor: C.ivory }}>
+                <div className="rounded-xl p-4 border" style={{ backgroundColor: C.ivory, borderColor: C.border }}>
                   <div className="text-xs mb-1" style={{ color: C.slateLight }}>{t.simulateur.riskLevel}</div>
                   <div className="flex items-center gap-2 font-bold text-lg" style={{ color: RISK_COLORS[risk.key] }}>
                     <RiskDot level={risk.key} /> {RISK_LABELS[risk.key]}
                   </div>
                 </div>
-                <div className="rounded-lg p-4" style={{ backgroundColor: C.ivory }}>
+                <div className="rounded-xl p-4 border" style={{ backgroundColor: C.ivory, borderColor: C.border }}>
                   <div className="text-xs mb-1" style={{ color: C.slateLight }}>{t.simulateur.triggered}</div>
                   <div className="font-bold text-lg flex items-center gap-2" style={{ color: risk.pct > 0 ? C.red : C.green }}>
                     {risk.pct > 0 ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
                     {risk.pct > 0 ? t.simulateur.triggeredYes : t.simulateur.triggeredNo}
                   </div>
                 </div>
-                <div className="rounded-lg p-4" style={{ backgroundColor: C.blueSoft }}>
+                <div className="rounded-xl p-4 border" style={{ backgroundColor: C.blueSoft, borderColor: `${C.blue}22` }}>
                   <div className="text-xs mb-1" style={{ color: C.blue }}>{t.simulateur.indemnPct}</div>
-                  <div className="font-bold text-lg" style={{ color: C.navy }}>{indemnPct.toFixed(0)}%</div>
+                  <div className="font-bold text-lg" style={{ color: C.navy, fontFamily: "var(--font-display)" }}>{indemnPct.toFixed(0)}%</div>
                 </div>
-                <div className="rounded-lg p-4" style={{ backgroundColor: C.greenSoft }}>
+                <div className="rounded-xl p-4 border" style={{ backgroundColor: C.greenSoft, borderColor: `${C.green}22` }}>
                   <div className="text-xs mb-1" style={{ color: C.green }}>{t.simulateur.indemnAmount}</div>
-                  <div className="font-bold text-lg" style={{ color: C.navy }}>{fmtNumber(indemnAmount, lang)} MRU</div>
+                  <div className="font-bold text-lg" style={{ color: C.navy, fontFamily: "var(--font-display)" }}>{fmtNumber(indemnAmount, lang)} MRU</div>
                 </div>
-                <div className="rounded-lg p-4" style={{ backgroundColor: C.ivory }}>
+                <div className="rounded-xl p-4 border" style={{ backgroundColor: C.ivory, borderColor: C.border }}>
                   <div className="text-xs mb-1" style={{ color: C.slateLight }}>{t.simulateur.premium}</div>
-                  <div className="font-bold text-lg" style={{ color: C.navy }}>{fmtNumber(commercialPremium, lang)} MRU</div>
+                  <div className="font-bold text-lg" style={{ color: C.navy, fontFamily: "var(--font-display)" }}>{fmtNumber(commercialPremium, lang)} MRU</div>
                 </div>
-                <div className="rounded-lg p-4" style={{ backgroundColor: C.ivory }}>
+                <div className="rounded-xl p-4 border" style={{ backgroundColor: C.ivory, borderColor: C.border }}>
                   <div className="text-xs mb-1" style={{ color: C.slateLight }}>{t.simulateur.ratio}</div>
-                  <div className="font-bold text-lg" style={{ color: C.navy }}>{ratio.toFixed(2)}x</div>
+                  <div className="font-bold text-lg" style={{ color: C.navy, fontFamily: "var(--font-display)" }}>{ratio.toFixed(2)}x</div>
                 </div>
               </div>
 
@@ -1563,7 +1698,7 @@ export default function ParametricInsurancePlatform() {
                       <div className="flex justify-between text-xs mb-1" style={{ color: C.slate }}>
                         <span>{label}</span><span className="font-semibold" style={{ color: C.navy }}>{val}%</span>
                       </div>
-                      <input type="range" min={0} max={100} value={val} onChange={(e) => setter(Number(e.target.value))} className="w-full accent-blue-700" />
+                      <input type="range" min={0} max={100} value={val} onChange={(e) => setter(Number(e.target.value))} className="w-full" style={{ "--val": `${val}%` }} />
                     </div>
                   ))}
                 </div>
@@ -1572,6 +1707,12 @@ export default function ParametricInsurancePlatform() {
           </div>
         </div>
       </section>
+
+      {/* SCÉNARIOS */}
+      <ScenariosSection x={x.scenarios} lang={lang} badges={x.badges} assumptions={assumptions} />
+
+      {/* SENSIBILITÉ */}
+      <SensibiliteSection x={x.sensibilite} lang={lang} badges={x.badges} assumptions={assumptions} />
 
       {/* RESULTATS + SONDAGE + CARTE */}
       <section id="resultats" className="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-20">
@@ -1583,8 +1724,8 @@ export default function ParametricInsurancePlatform() {
         <div className="flex flex-wrap gap-2 mb-8">
           {[t.resultats.title, t.sondage.title, t.carte.title].map((tab, i) => (
             <button key={i} onClick={() => setResultsTab(i)}
-              className="px-4 py-2 rounded-full text-sm font-medium border"
-              style={resultsTab === i ? { backgroundColor: C.navy, borderColor: C.navy, color: C.white } : { borderColor: C.border, color: C.slate }}>
+              className="px-4 py-2 rounded-full text-sm font-medium border transition-all duration-300 hover:-translate-y-px"
+              style={resultsTab === i ? { background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, borderColor: C.navy, color: C.white, boxShadow: "0 8px 18px -8px rgba(11,30,57,0.5)" } : { borderColor: C.border, color: C.slate, backgroundColor: C.white }}>
               {tab}
             </button>
           ))}
@@ -1663,7 +1804,7 @@ export default function ParametricInsurancePlatform() {
             <Card>
               <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{t.carte.title}</div>
               <div className="overflow-x-auto mb-4">
-                <table className="w-full text-sm">
+                <table className="tbl w-full text-sm">
                   <thead>
                     <tr style={{ backgroundColor: C.blueSoft }}>
                       {t.carte.tableHead.map((h, i) => (
@@ -1753,6 +1894,9 @@ export default function ParametricInsurancePlatform() {
         </div>
       </section>
 
+      {/* ÉQUIPE */}
+      <TeamSection x={x.equipe} team={team} badges={x.badges} />
+
       {/* GLOSSAIRE */}
       <section className="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-20">
         <SectionTitle title={t.glossaryTitle} />
@@ -1766,13 +1910,16 @@ export default function ParametricInsurancePlatform() {
         </div>
       </section>
 
+      {/* CONCLUSION */}
+      <ConclusionSection x={x.conclusion} lang={lang} />
+
       {/* APROPOS */}
       <section id="apropos" className="py-16 md:py-20" style={{ backgroundColor: C.white }}>
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <SectionTitle eyebrow={t.apropos.eyebrow} title={t.apropos.title} />
           <Card className="mb-8 flex flex-wrap items-center gap-6">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.navy }}>
-              <GraduationCap size={22} color={C.white} />
+            <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-md" style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, border: `1px solid ${C.gold}44` }}>
+              <GraduationCap size={22} color={C.goldLight} />
             </div>
             <div>
               <div className="font-bold" style={{ color: C.navy }}>{t.apropos.project}</div>
@@ -1784,25 +1931,54 @@ export default function ParametricInsurancePlatform() {
       </section>
 
       {/* FOOTER */}
-      <footer style={{ backgroundColor: C.navy }} className="py-10">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
-            <div>
-              <div className="font-bold text-white mb-1">{t.footer.line1}</div>
-              <div className="text-xs" style={{ color: "#8FA0BE" }}>{t.footer.line2}</div>
+      <footer className="relative overflow-hidden" style={{ backgroundColor: C.navyDeep }}>
+        <div className="divider-glow" />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(180deg, ${C.navyDeep}, ${C.navy} 130%)` }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(36rem 18rem at 85% 0%, rgba(176,138,62,0.1), transparent 60%)" }} />
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 relative">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8 mb-10">
+            <div className="max-w-sm">
+              <div className="flex items-center gap-2.5 mb-3">
+                <Logo variant="compact" theme="dark" size={36} />
+                <span className="font-extrabold text-sm tracking-tight text-white">APC · Mauritanie</span>
+              </div>
+              <div className="font-semibold text-white mb-1.5" style={{ fontFamily: "var(--font-display)" }}>{t.footer.line1}</div>
+              <div className="text-xs leading-relaxed mb-3" style={{ color: "#8FA0BE" }}>{t.footer.line2}</div>
+              <div className="text-xs font-semibold" style={{ color: "#C3CFE0" }}>المعهد العالي للمحاسبة وإدارة المؤسسات — ISCAE</div>
+              <div className="text-[11px]" style={{ color: "#8FA0BE" }}>Institut Supérieur de Comptabilité et d'Administration des Entreprises</div>
+              <div className="text-[11px] mt-2" style={{ color: "#8FA0BE" }}>Nouakchott, Mauritanie · contact@apc-mauritanie.example</div>
+              <button
+                onClick={() => setLang(l => (l === "fr" ? "ar" : "fr"))}
+                className="mt-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold border transition-all hover:-translate-y-px"
+                style={{ borderColor: "rgba(255,255,255,0.2)", color: C.goldLight }}>
+                <Globe size={12} /> {lang === "fr" ? "العربية" : "Français"}
+              </button>
             </div>
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <div className="flex flex-wrap gap-x-5 gap-y-2.5 md:max-w-md md:justify-end">
               {navItems.filter(([id]) => id !== "home").map(([id, label]) => (
-                <button key={id} onClick={() => scrollTo(id)} className="text-xs" style={{ color: "#B9C6DA" }}>{label}</button>
+                <button key={id} onClick={() => scrollTo(id)} className="text-xs transition-colors duration-200 hover:text-white" style={{ color: "#B9C6DA" }}>{label}</button>
               ))}
             </div>
           </div>
-          <div className="border-t pt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs" style={{ borderColor: "#2C4468", color: "#8FA0BE" }}>
+          <div className="border-t pt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs" style={{ borderColor: "rgba(255,255,255,0.09)", color: "#8FA0BE" }}>
             <span>{t.footer.rights}</span>
-            <span className="font-semibold" style={{ color: C.gold }}>{t.footer.dev}</span>
+            <span className="font-bold text-gradient-gold">{t.footer.dev}</span>
           </div>
         </div>
       </footer>
+
+      {/* ESPACE SUPERVISEUR — 5 clics rapides sur le logo */}
+      <AdminPanel
+        open={adminOpen}
+        onClose={() => setAdminOpen(false)}
+        lang={lang}
+        dir={dir}
+        x={x.admin}
+        assumptions={assumptions}
+        onSaveAssumptions={handleSaveAssumptions}
+        team={team}
+        onTeamChange={setTeam}
+      />
     </div>
   );
 }

@@ -15,7 +15,7 @@ import {
    - Auth : Supabase Auth (email + mot de passe, session persistante)
    - Repli local (mode démo) si Supabase n'est pas configuré
    ============================================================ */
-export default function AdminPanel({ open, onClose, lang, x, assumptions, onSaveAssumptions, team, onTeamChange, dir }) {
+export default function AdminPanel({ open, onClose, lang, x, finance, assumptions, onSaveAssumptions, team, onTeamChange, dir }) {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -139,7 +139,7 @@ export default function AdminPanel({ open, onClose, lang, x, assumptions, onSave
 
             {tab === "overview" && <AdminOverview x={x} team={team} lang={lang} />}
             {tab === "finance" && draft && (
-              <FinanceEditor x={x} draft={draft} setDraft={setDraft} onSave={handleSaveAssumptions} saved={saved} lang={lang} fx={x} />
+              <FinanceEditor x={finance} draft={draft} setDraft={setDraft} onSave={handleSaveAssumptions} saved={saved} lang={lang} fx={finance} />
             )}
             {tab === "team" && <TeamEditor x={x} team={team} onChange={(t) => onTeamChange(t)} authed={authed} lang={lang} />}
             {tab === "site" && <SiteEditor x={x} authed={authed} />}

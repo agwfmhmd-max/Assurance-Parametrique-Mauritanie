@@ -1988,6 +1988,7 @@ export default function ParametricInsurancePlatform() {
         lang={lang}
         dir={dir}
         x={x.admin}
+        finance={x.financier}
         assumptions={assumptions}
         onSaveAssumptions={handleSaveAssumptions}
         team={team}

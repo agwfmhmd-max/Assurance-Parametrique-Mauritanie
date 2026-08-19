@@ -37,25 +37,28 @@ export function getEditLog() { return lsGet(LS.edits, []); }
 /* ---------------- Hypothèses financières ---------------- */
 export async function loadAssumptions() {
   if (isSupabaseConfigured()) {
-    try {
-      const { data, error } = await supabase
-        .from("financial_assumptions").select("assumptions")
-        .eq("id", 1).maybeSingle();
-      if (!error && data?.assumptions) return { ...DEFAULT_ASSUMPTIONS, ...data.assumptions };
-    } catch { /* fallback */ }
+    const { data, error } = await supabase
+      .from("financial_assumptions").select("assumptions")
+      .eq("id", 1).maybeSingle();
+    if (error) throw new Error(`FINANCE_LOAD_FAILED: ${error.message}`);
+    return { ...DEFAULT_ASSUMPTIONS, ...(data?.assumptions || {}) };
   }
   return { ...DEFAULT_ASSUMPTIONS, ...lsGet(LS.assumptions, {}) };
 }
 
 export async function saveAssumptions(assumptions, authed) {
+  if (isSupabaseConfigured()) {
+    if (!authed) throw new Error("ADMIN_SESSION_REQUIRED");
+    const { error } = await supabase.from("financial_assumptions")
+      .upsert({ id: 1, assumptions, updated_at: new Date().toISOString() });
+    if (error) throw new Error(`FINANCE_SAVE_FAILED: ${error.message}`);
+    lsSet(LS.assumptions, assumptions);
+    logEdit("Hypothèses financières mises à jour");
+    return loadAssumptions();
+  }
   lsSet(LS.assumptions, assumptions);
   logEdit("Hypothèses financières mises à jour");
-  if (isSupabaseConfigured() && authed) {
-    try {
-      await supabase.from("financial_assumptions")
-        .upsert({ id: 1, assumptions, updated_at: new Date().toISOString() });
-    } catch { /* conservé en local */ }
-  }
+  return assumptions;
 }
 
 /* ---------------- Équipe ---------------- */
@@ -67,40 +70,59 @@ export const DEFAULT_TEAM = [
 
 export async function loadTeam() {
   if (isSupabaseConfigured()) {
-    try {
-      const { data, error } = await supabase
-        .from("team_members").select("*").order("sort_order", { ascending: true });
-      if (!error && data && data.length) return data;
-    } catch { /* fallback */ }
+    const { data, error } = await supabase
+      .from("team_members")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(`TEAM_LOAD_FAILED: ${error.message}`);
+    return data || [];
   }
   const local = lsGet(LS.team, null);
   return local || DEFAULT_TEAM;
 }
 
 export async function saveTeamMember(member, authed) {
+  if (isSupabaseConfigured()) {
+    if (!authed) throw new Error("ADMIN_SESSION_REQUIRED");
+    const row = {
+      first_name: String(member.first_name || "").trim(),
+      last_name: String(member.last_name || "").trim(),
+      function: member.function || "", specialty: member.specialty || "",
+      bio: member.bio || "", linkedin: member.linkedin || "", role: member.role || "",
+      photo_url: member.photo_url || "",
+      sort_order: Number.isFinite(Number(member.sort_order)) ? Number(member.sort_order) : 0,
+      updated_at: new Date().toISOString(),
+    };
+    if (!row.first_name || !row.last_name) throw new Error("TEAM_MEMBER_NAME_REQUIRED");
+    if (member.id && !String(member.id).startsWith("d") && !String(member.id).startsWith("local-")) row.id = member.id;
+    const { error } = await supabase.from("team_members").upsert(row, { onConflict: "id" });
+    if (error) throw new Error(`TEAM_SAVE_FAILED: ${error.message}`);
+    const fresh = await loadTeam();
+    lsSet(LS.team, fresh);
+    logEdit(member.id ? `Membre modifié : ${member.first_name} ${member.last_name}` : `Membre ajouté : ${member.first_name} ${member.last_name}`);
+    return fresh;
+  }
   const team = await loadTeam();
   const idx = team.findIndex((m) => m.id === member.id);
   const next = idx >= 0 ? team.map((m, i) => (i === idx ? member : m)) : [...team, member];
   lsSet(LS.team, next);
   logEdit(idx >= 0 ? `Membre modifié : ${member.first_name} ${member.last_name}` : `Membre ajouté : ${member.first_name} ${member.last_name}`);
-  if (isSupabaseConfigured() && authed) {
-    try {
-      const row = { ...member };
-      if (String(row.id).startsWith("d") || String(row.id).startsWith("local-")) delete row.id;
-      await supabase.from("team_members").upsert(row);
-    } catch { /* conservé en local */ }
-  }
   return next;
 }
 
 export async function deleteTeamMember(id, authed) {
-  const team = (await loadTeam()).filter((m) => m.id !== id);
-  lsSet(LS.team, team);
-  logEdit("Membre supprimé");
-  if (isSupabaseConfigured() && authed) {
-    try { await supabase.from("team_members").delete().eq("id", id); } catch { /* noop */ }
+  if (isSupabaseConfigured()) {
+    if (!authed) throw new Error("ADMIN_SESSION_REQUIRED");
+    if (!id || String(id).startsWith("d") || String(id).startsWith("local-")) throw new Error("TEAM_MEMBER_ID_INVALID");
+    const { error } = await supabase.from("team_members").delete().eq("id", id);
+    if (error) throw new Error(`TEAM_DELETE_FAILED: ${error.message}`);
+    const fresh = await loadTeam();
+    lsSet(LS.team, fresh); logEdit("Membre supprimé");
+    return fresh;
   }
-  return team;
+  const team = (await loadTeam()).filter((m) => m.id !== id);
+  lsSet(LS.team, team); logEdit("Membre supprimé"); return team;
 }
 
 /* Upload photo : Supabase Storage si configuré, sinon dataURL compressée */

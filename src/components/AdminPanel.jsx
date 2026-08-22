@@ -15,7 +15,7 @@ import {
    - Auth : Supabase Auth (email + mot de passe, session persistante)
    - Repli local (mode démo) si Supabase n'est pas configuré
    ============================================================ */
-export default function AdminPanel({ open, onClose, lang, x, finance, assumptions, onSaveAssumptions, team, onTeamChange, dir }) {
+export default function AdminPanel({ open, onClose, lang, x, finance, assumptions, onSaveAssumptions, team, onTeamChange, dir, gateMode = false, onAuthenticated }) {
   const [session, setSession] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,27 +25,90 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
   const [draft, setDraft] = useState(null);
   const [saved, setSaved] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [gateStep, setGateStep] = useState(gateMode ? "question" : "login");
   const configured = isSupabaseConfigured();
 
   useEffect(() => {
     if (!configured) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      if (data.session && onAuthenticated) onAuthenticated(data.session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+      if (s && onAuthenticated) onAuthenticated(s);
+    });
     return () => sub.subscription.unsubscribe();
   }, [configured]);
 
-  useEffect(() => { if (open) { setDraft({ ...assumptions }); setSaved(false); setAuthError(null); setActionError(null); } }, [open]); // eslint-disable-line
+  useEffect(() => { if (open) { setDraft({ ...assumptions }); setSaved(false); setAuthError(null); setActionError(null); if (gateMode) setGateStep("question"); } }, [open, gateMode]); // eslint-disable-line
 
   if (!open) return null;
   const authed = !!session;
+
+  // بوابة الدخول الأولى: سؤال صريح قبل عرض نموذج تسجيل الدخول.
+  if (gateMode && !authed && gateStep === "question") {
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6" dir={dir}>
+        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 0%, ${C.navyLight}, ${C.navyDeep} 62%, #020812)`, backdropFilter: "blur(8px)" }} />
+        <div className="relative w-full max-w-xl rounded-3xl border p-6 sm:p-9 shadow-2xl" style={{ backgroundColor: "rgba(255,255,255,0.98)", borderColor: `${C.gold}55` }}>
+          <div className="flex justify-center mb-5">
+            <Logo variant="compact" theme="dark" size={54} />
+          </div>
+          <div className="text-center">
+            <div className="text-[11px] font-bold tracking-[0.18em] uppercase mb-3" style={{ color: C.gold }}>{x.accessGate.eyebrow}</div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold leading-tight mb-3" style={{ color: C.navy, fontFamily: "var(--font-display)" }}>
+              {x.accessGate.title}
+            </h1>
+            <p className="text-sm sm:text-base leading-relaxed mb-7" style={{ color: C.slate }}>{x.accessGate.desc}</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <button type="button" onClick={() => setGateStep("login")}
+                className="py-3.5 px-5 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"
+                style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})` }}>
+                {x.accessGate.yes}
+              </button>
+              <button type="button" onClick={() => setGateStep("no")}
+                className="py-3.5 px-5 rounded-xl text-sm font-bold border transition-all hover:-translate-y-px hover:bg-black/5"
+                style={{ borderColor: C.border, color: C.slate }}>
+                {x.accessGate.no}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (gateMode && !authed && gateStep === "no") {
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6" dir={dir}>
+        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 0%, ${C.navyLight}, ${C.navyDeep} 62%, #020812)` }} />
+        <div className="relative w-full max-w-lg rounded-3xl border p-7 sm:p-9 shadow-2xl text-center" style={{ backgroundColor: "rgba(255,255,255,0.98)", borderColor: `${C.gold}55` }}>
+          <div className="text-5xl mb-5" role="img" aria-label="laughing">🤣</div>
+          <div className="text-2xl sm:text-3xl font-extrabold mb-6" style={{ color: C.navy }}>
+            أيو شتعدل هون  ما تشوفو
+          </div>
+          <button type="button" onClick={() => setGateStep("question")}
+            className="py-3 px-6 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"
+            style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})` }}>
+            {x.accessGate.back}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   async function handleLogin(e) {
     e.preventDefault();
     setBusy(true); setAuthError(null);
     if (!configured) { setBusy(false); setAuthError(x.notConfigured); return; }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
-    if (error) setAuthError(x.wrongCreds);
+    if (error) {
+      setAuthError(x.wrongCreds);
+      return;
+    }
+    if (data.session && onAuthenticated) onAuthenticated(data.session);
   }
 
   async function handleLogout() {
@@ -81,9 +144,11 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
                 <LogOut size={13} /> {x.logout}
               </button>
             )}
+            {!gateMode && (
             <button onClick={onClose} className="p-2 rounded-lg transition-colors hover:bg-black/5" style={{ color: C.navy }} aria-label={x.close}>
               <X size={18} />
             </button>
+          )}
           </div>
         </div>
 

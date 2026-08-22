@@ -904,6 +904,7 @@ export default function ParametricInsurancePlatform() {
 
   // Espace superviseur — 5 clics rapides sur le logo
   const [adminOpen, setAdminOpen] = useState(false);
+  const [accessGranted, setAccessGranted] = useState(false);
   const clickCount = useRef(0);
   const clickTimer = useRef(null);
   const [logoPulse, setLogoPulse] = useState(false);
@@ -1006,6 +1007,27 @@ export default function ParametricInsurancePlatform() {
     return () => spy.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
+
+  // بوابة الوصول: لا تُعرض الواجهة الرئيسية إلا بعد مصادقة المشرف.
+  // لا يتم تعديل قاعدة البيانات أو أي من وظائف المنصة الحالية.
+  if (!accessGranted) {
+    return (
+      <AdminPanel
+        open={true}
+        gateMode={true}
+        onAuthenticated={() => { setAccessGranted(true); setAdminOpen(true); }}
+        onClose={() => {}}
+        lang={lang}
+        dir={dir}
+        x={x.admin}
+        finance={x.financier}
+        assumptions={assumptions}
+        onSaveAssumptions={handleSaveAssumptions}
+        team={team}
+        onTeamChange={setTeam}
+      />
+    );
+  }
 
   return (
     <div dir={dir} style={{ backgroundColor: C.ivory, color: C.ink, fontFamily: "var(--font-body)" }} className="min-h-screen w-full">

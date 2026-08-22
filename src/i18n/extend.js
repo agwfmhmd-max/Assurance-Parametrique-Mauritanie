@@ -185,6 +185,14 @@ export const EXT = {
       limits: "Limites : hypothèses non calibrées sur données historiques officielles, risque de base, cadre réglementaire à formaliser.",
     },
     admin: {
+      accessGate: {
+        eyebrow: "Accès sécurisé",
+        title: "Êtes-vous membre de l’équipe de ce projet ou son encadrant ?",
+        desc: "Cette plateforme est réservée à l’équipe du projet et à ses encadrants. Veuillez confirmer votre statut pour continuer.",
+        yes: "Oui, je fais partie de l’équipe",
+        no: "Non, je suis utilisateur",
+        back: "Retour",
+      },
       loginTitle: "Espace superviseur", loginDesc: "Connexion sécurisée via Supabase Auth.",
       email: "Email", password: "Mot de passe", login: "Se connecter", loggingIn: "Connexion…",
       logout: "Se déconnecter", wrongCreds: "Identifiants incorrects ou accès non autorisé.",
@@ -389,6 +397,14 @@ export const EXT = {
       limits: "الحدود: فرضيات غير معايرة على بيانات تاريخية رسمية، خطر الأساس، وإطار تنظيمي يجب إرساؤه.",
     },
     admin: {
+      accessGate: {
+        eyebrow: "دخول آمن",
+        title: "هل أنت من فريق هذا المشروع أو المشرف عليه؟",
+        desc: "هذه المنصة مخصصة لفريق المشروع والمشرفين عليه. يرجى تأكيد صفتك للمتابعة.",
+        yes: "نعم، أنا من الفريق",
+        no: "لا، أنا مستخدم",
+        back: "رجوع",
+      },
       loginTitle: "فضاء المشرف", loginDesc: "تسجيل دخول آمن عبر Supabase Auth.",
       email: "البريد الإلكتروني", password: "كلمة المرور", login: "تسجيل الدخول", loggingIn: "جارٍ الدخول…",
       logout: "تسجيل الخروج", wrongCreds: "بيانات غير صحيحة أو وصول غير مصرّح به.",

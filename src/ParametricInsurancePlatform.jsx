@@ -902,7 +902,7 @@ export default function ParametricInsurancePlatform() {
   const [assumptions, setAssumptions] = useState(DEFAULT_ASSUMPTIONS);
   const [team, setTeam] = useState([]);
 
-  // Espace superviseur — 5 clics rapides sur le logo
+  // Espace superviseur — accès protégé par Supabase Auth + admin_profiles
   const [adminOpen, setAdminOpen] = useState(false);
   const [accessGranted, setAccessGranted] = useState(false);
   const clickCount = useRef(0);
@@ -1016,6 +1016,7 @@ export default function ParametricInsurancePlatform() {
         open={true}
         gateMode={true}
         onAuthenticated={() => { setAccessGranted(true); setAdminOpen(true); }}
+        onUnauthenticated={() => { setAccessGranted(false); setAdminOpen(false); }}
         onClose={() => {}}
         lang={lang}
         dir={dir}
@@ -2003,10 +2004,11 @@ export default function ParametricInsurancePlatform() {
         </div>
       </footer>
 
-      {/* ESPACE SUPERVISEUR — 5 clics rapides sur le logo */}
+      {/* ESPACE SUPERVISEUR — accès protégé */}
       <AdminPanel
         open={adminOpen}
         onClose={() => setAdminOpen(false)}
+        onUnauthenticated={() => { setAccessGranted(false); setAdminOpen(false); }}
         lang={lang}
         dir={dir}
         x={x.admin}

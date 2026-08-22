@@ -15,8 +15,10 @@ import {
    - Auth : Supabase Auth (email + mot de passe, session persistante)
    - Repli local (mode démo) si Supabase n'est pas configuré
    ============================================================ */
-export default function AdminPanel({ open, onClose, lang, x, finance, assumptions, onSaveAssumptions, team, onTeamChange, dir, gateMode = false, onAuthenticated }) {
+export default function AdminPanel({ open, onClose, lang, x, finance, assumptions, onSaveAssumptions, team, onTeamChange, dir, gateMode = false, onAuthenticated, onUnauthenticated }) {
   const [session, setSession] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState(null);
@@ -28,26 +30,62 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
   const [gateStep, setGateStep] = useState(gateMode ? "question" : "login");
   const configured = isSupabaseConfigured();
 
+  const verifyAdminSession = async (nextSession) => {
+    if (!nextSession?.user?.id || !configured) {
+      setIsAdmin(false);
+      setCheckingAdmin(false);
+      return false;
+    }
+    setCheckingAdmin(true);
+    const { data, error } = await supabase
+      .from("admin_profiles")
+      .select("user_id")
+      .eq("user_id", nextSession.user.id)
+      .maybeSingle();
+    const allowed = !error && !!data?.user_id;
+    setIsAdmin(allowed);
+    setCheckingAdmin(false);
+    if (allowed && onAuthenticated) onAuthenticated(nextSession);
+    return allowed;
+  };
+
   useEffect(() => {
-    if (!configured) return;
-    supabase.auth.getSession().then(({ data }) => {
+    if (!configured) { setCheckingAdmin(false); return; }
+    let active = true;
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!active) return;
       setSession(data.session);
-      if (data.session && onAuthenticated) onAuthenticated(data.session);
+      if (data.session) {
+        const allowed = await verifyAdminSession(data.session);
+        if (!allowed && active) {
+          await supabase.auth.signOut();
+          setSession(null);
+        }
+      } else {
+        setIsAdmin(false);
+        setCheckingAdmin(false);
+      }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_e, s) => {
+      if (!active) return;
       setSession(s);
-      if (s && onAuthenticated) onAuthenticated(s);
+      if (!s) { setIsAdmin(false); setCheckingAdmin(false); if (onUnauthenticated) onUnauthenticated(); return; }
+      const allowed = await verifyAdminSession(s);
+      if (!allowed && active) {
+        await supabase.auth.signOut();
+        setSession(null);
+      }
     });
-    return () => sub.subscription.unsubscribe();
+    return () => { active = false; sub.subscription.unsubscribe(); };
   }, [configured]);
 
   useEffect(() => { if (open) { setDraft({ ...assumptions }); setSaved(false); setAuthError(null); setActionError(null); if (gateMode) setGateStep("question"); } }, [open, gateMode]); // eslint-disable-line
 
   if (!open) return null;
-  const authed = !!session;
+  const authed = !!session && isAdmin && !checkingAdmin;
 
   // بوابة الدخول الأولى: سؤال صريح قبل عرض نموذج تسجيل الدخول.
-  if (gateMode && !authed && gateStep === "question") {
+  if (gateMode && !authed && !checkingAdmin && gateStep === "question") {
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6" dir={dir}>
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 0%, ${C.navyLight}, ${C.navyDeep} 62%, #020812)`, backdropFilter: "blur(8px)" }} />
@@ -79,7 +117,7 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
     );
   }
 
-  if (gateMode && !authed && gateStep === "no") {
+  if (gateMode && !authed && !checkingAdmin && gateStep === "no") {
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6" dir={dir}>
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 0%, ${C.navyLight}, ${C.navyDeep} 62%, #020812)` }} />
@@ -108,12 +146,24 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
       setAuthError(x.wrongCreds);
       return;
     }
-    if (data.session && onAuthenticated) onAuthenticated(data.session);
+    if (data.session) {
+      const allowed = await verifyAdminSession(data.session);
+      if (!allowed) {
+        await supabase.auth.signOut();
+        setSession(null);
+        setAuthError(x.notAdmin || "ليس لديك صلاحية المشرف / Vous n'avez pas les droits administrateur.");
+        return;
+      }
+      setSession(data.session);
+    }
   }
 
   async function handleLogout() {
     if (configured) await supabase.auth.signOut();
     setSession(null);
+    setIsAdmin(false);
+    setCheckingAdmin(false);
+    if (onUnauthenticated) onUnauthenticated();
   }
 
   async function handleSaveAssumptions() {
@@ -152,8 +202,18 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
           </div>
         </div>
 
+        {/* CHECKING ADMIN */}
+        {!authed && checkingAdmin && configured && (
+          <div className="px-5 md:px-7 py-14 max-w-md mx-auto text-center">
+            <Lock size={28} className="mx-auto mb-3" style={{ color: C.gold }} />
+            <p className="text-sm font-semibold" style={{ color: C.navy }}>
+              {x.checkingAdmin || "Vérification des autorisations…"}
+            </p>
+          </div>
+        )}
+
         {/* LOGIN */}
-        {!authed && (
+        {!authed && !checkingAdmin && (
           <div className="px-5 md:px-7 py-10 max-w-md mx-auto">
             {!configured && (
               <div className="rounded-xl border p-4 mb-6 text-xs leading-relaxed" style={{ borderColor: `${C.orange}55`, backgroundColor: C.orangeSoft, color: C.orange }}>

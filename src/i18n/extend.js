@@ -84,7 +84,8 @@ export const EXT = {
     financier: {
       title: "Étude financière", eyebrow: "07 · Modèle financier complet",
       desc: "Hypothèses, tarification, projections sur 5 ans, compte de résultat, seuil de rentabilité, ROI, VAN et TRI. Toutes les valeurs sont des hypothèses de simulation modifiables par le superviseur.",
-      tabs: ["Hypothèses", "Tarification", "Projections", "Compte de résultat", "Rentabilité", "ROI · VAN · TRI"],
+      tabs: ["Hypothèses", "Tarification", "Projections", "Compte de résultat", "Rentabilité", "ROI · VAN · TRI", "Modèle interactif"],
+      model: { title: "Financial Model Builder", desc: "Modifiez les variables du scénario sans recharger la page. Les résultats sont recalculés à partir du moteur financier existant.", insured: "Nombre d'assurés (×)", price: "Prime (×)", frequency: "Sinistralité (×)", reinsurance: "Réassurance (×)", inflation: "Inflation (×)", result: "Résultat net cumulé", scenario: "Scénario", central: "Central", formula: "Calcul transparent : primes − indemnités − réassurance − distribution − coûts fixes." },
       hypTitle: "Hypothèses financières",
       hypEditNote: "Ces hypothèses sont modifiables par le superviseur depuis l'espace d'administration.",
       hyp: {
@@ -187,10 +188,10 @@ export const EXT = {
     admin: {
       accessGate: {
         eyebrow: "Accès sécurisé",
-        title: "Êtes-vous membre de l’équipe de ce projet ou son encadrant ?",
+        title: "Êtes-vous membre de l’équipe du projet ou son encadrant ?",
         desc: "Cette plateforme est réservée à l’équipe du projet et à ses encadrants. Veuillez confirmer votre statut pour continuer.",
-        yes: "Oui, je fais partie de l’équipe",
-        no: "Non, je suis utilisateur",
+        yes: "Oui, accéder à l’espace projet",
+        no: "Non, je suis un utilisateur",
         back: "Retour",
       },
       loginTitle: "Espace superviseur", loginDesc: "Connexion sécurisée via Supabase Auth.",
@@ -212,7 +213,7 @@ export const EXT = {
       lastEdits: "Dernières modifications", none: "Aucune modification enregistrée pour le moment.",
       adminHint: "Astuce : 5 clics rapides sur le logo ouvrent cet espace.",
       sessionActive: "Session active",
-      close: "Fermer",
+      close: "Fermer", remember: "Se souvenir de cet appareil",
     },
   },
 
@@ -298,7 +299,8 @@ export const EXT = {
     financier: {
       title: "الدراسة المالية", eyebrow: "07 · النموذج المالي الكامل",
       desc: "الفرضيات، التسعير، إسقاطات خمس سنوات، حساب النتائج، عتبة الربحية، ROI، VAN وTRI. جميع القيم فرضيات محاكاة قابلة للتعديل من طرف المشرف.",
-      tabs: ["الفرضيات", "التسعير", "الإسقاطات", "حساب النتائج", "الربحية", "ROI · VAN · TRI"],
+      tabs: ["الفرضيات", "التسعير", "الإسقاطات", "حساب النتائج", "الربحية", "ROI · VAN · TRI", "النموذج التفاعلي"],
+      model: { title: "باني النموذج المالي", desc: "غيّر متغيرات السيناريو دون إعادة تحميل الصفحة، وتُعاد النتائج انطلاقًا من المحرك المالي الحالي.", insured: "عدد المؤمن عليهم (×)", price: "القسط (×)", frequency: "معدل الخسائر (×)", reinsurance: "إعادة التأمين (×)", inflation: "التضخم (×)", result: "صافي النتيجة التراكمية", scenario: "السيناريو", central: "المركزي", formula: "احتساب شفاف: الأقساط − التعويضات − إعادة التأمين − التوزيع − التكاليف الثابتة." },
       hypTitle: "الفرضيات المالية",
       hypEditNote: "هذه الفرضيات قابلة للتعديل من طرف المشرف عبر فضاء الإدارة.",
       hyp: {
@@ -426,7 +428,7 @@ export const EXT = {
       lastEdits: "آخر التعديلات", none: "لا تعديلات مسجلة حاليًا.",
       adminHint: "تلميح: 5 نقرات سريعة على الشعار تفتح هذا الفضاء.",
       sessionActive: "جلسة نشطة",
-      close: "إغلاق",
+      close: "إغلاق", remember: "تذكّر هذا الجهاز",
     },
   },
 };

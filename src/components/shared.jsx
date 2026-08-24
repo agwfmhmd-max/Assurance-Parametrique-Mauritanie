@@ -138,12 +138,13 @@ export const RiskDot = ({ level }) => (
   <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: RISK_COLORS[level] }} />
 );
 
-export const Card = ({ children, className = "", style }) => {
+export const Card = ({ children, className = "", style, ...props }) => {
   const ref = useRef(null);
   useReveal(ref);
   return (
     <div
       ref={ref}
+      {...props}
       className={`rv card-lift bg-white rounded-2xl border p-6 shadow-[0_1px_2px_rgba(11,30,57,0.05),0_10px_28px_-18px_rgba(11,30,57,0.14)] ${className}`}
       style={{ borderColor: C.border, ...style }}
     >

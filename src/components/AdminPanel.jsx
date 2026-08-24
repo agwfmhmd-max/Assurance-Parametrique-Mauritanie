@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, LogOut, Save, Plus, Trash2, Pencil, Users, Settings2, LayoutDashboard, FileText, Upload } from "lucide-react";
+import { X, Lock, LogOut, Save, Plus, Trash2, Pencil, Users, Settings2, LayoutDashboard, FileText, Upload, Eye, EyeOff, ArrowLeft, ShieldCheck, CloudRain, BarChart3 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { C, Card } from "./shared";
 import Logo from "./Logo";
@@ -15,12 +15,14 @@ import {
    - Auth : Supabase Auth (email + mot de passe, session persistante)
    - Repli local (mode démo) si Supabase n'est pas configuré
    ============================================================ */
-export default function AdminPanel({ open, onClose, lang, x, finance, assumptions, onSaveAssumptions, team, onTeamChange, dir, gateMode = false, onAuthenticated, onUnauthenticated }) {
+export default function AdminPanel({ open, onClose, onLangChange, lang, x, finance, assumptions, onSaveAssumptions, team, onTeamChange, dir, gateMode = false, onAuthenticated, onUnauthenticated }) {
   const [session, setSession] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("overview");
@@ -79,7 +81,7 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
     return () => { active = false; sub.subscription.unsubscribe(); };
   }, [configured]);
 
-  useEffect(() => { if (open) { setDraft({ ...assumptions }); setSaved(false); setAuthError(null); setActionError(null); if (gateMode) setGateStep("question"); } }, [open, gateMode]); // eslint-disable-line
+  useEffect(() => { if (open) { setDraft({ ...assumptions }); setSaved(false); setAuthError(null); setActionError(null); setShowPassword(false); setRememberDevice(localStorage.getItem("apc-remember-device") !== "0"); if (gateMode) setGateStep("question"); } }, [open, gateMode]); // eslint-disable-line
 
   if (!open) return null;
   const authed = !!session && isAdmin && !checkingAdmin;
@@ -90,12 +92,15 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6" dir={dir}>
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 0%, ${C.navyLight}, ${C.navyDeep} 62%, #020812)`, backdropFilter: "blur(8px)" }} />
         <div className="relative w-full max-w-xl rounded-3xl border p-6 sm:p-9 shadow-2xl" style={{ backgroundColor: "rgba(255,255,255,0.98)", borderColor: `${C.gold}55` }}>
+          <button type="button" onClick={onLangChange} className="absolute top-4 end-4 rounded-full border px-3 py-1.5 text-[11px] font-bold" style={{ borderColor: C.border, color: C.blue }}>{lang === "fr" ? "العربية" : "Français"}</button>
           <div className="flex justify-center mb-5">
             <Logo variant="compact" theme="dark" size={54} />
           </div>
           <div className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-4"><span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${C.blue}16`, color: C.blue }}><CloudRain size={18} /></span><span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${C.gold}18`, color: C.gold }}><BarChart3 size={18} /></span><span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${C.green}18`, color: C.green }}><ShieldCheck size={18} /></span></div>
             <div className="text-[11px] font-bold tracking-[0.18em] uppercase mb-3" style={{ color: C.gold }}>{x.accessGate.eyebrow}</div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold leading-tight mb-3" style={{ color: C.navy, fontFamily: "var(--font-display)" }}>
+              <div className="text-[10px] uppercase tracking-[0.18em] font-bold mb-2" style={{ color: C.slateLight }}>{lang === "ar" ? "المناخ · التأمين · المالية · البحث" : "Climate Risk · Insurance · Finance · Research"}</div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold leading-tight mb-3" style={{ color: C.navy, fontFamily: "var(--font-display)" }}>
               {x.accessGate.title}
             </h1>
             <p className="text-sm sm:text-base leading-relaxed mb-7" style={{ color: C.slate }}>{x.accessGate.desc}</p>
@@ -122,9 +127,10 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6" dir={dir}>
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 0%, ${C.navyLight}, ${C.navyDeep} 62%, #020812)` }} />
         <div className="relative w-full max-w-lg rounded-3xl border p-7 sm:p-9 shadow-2xl text-center" style={{ backgroundColor: "rgba(255,255,255,0.98)", borderColor: `${C.gold}55` }}>
-          <div className="text-5xl mb-5" role="img" aria-label="laughing">🤣</div>
+          <button type="button" onClick={onLangChange} className="absolute top-4 end-4 rounded-full border px-3 py-1.5 text-[11px] font-bold" style={{ borderColor: C.border, color: C.blue }}>{lang === "fr" ? "العربية" : "Français"}</button>
+            <div className="text-5xl mb-5" role="img" aria-label="laughing">🤣</div>
           <div className="text-2xl sm:text-3xl font-extrabold mb-6" style={{ color: C.navy }}>
-            أيو شتعدل هون  ما تشوفو
+            أيو شتعدل هون  ما تشوفو 🤣
           </div>
           <button type="button" onClick={() => setGateStep("question")}
             className="py-3 px-6 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"
@@ -140,6 +146,7 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
     e.preventDefault();
     setBusy(true); setAuthError(null);
     if (!configured) { setBusy(false); setAuthError(x.notConfigured); return; }
+    if (rememberDevice) localStorage.setItem("apc-remember-device", "1");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) {
@@ -174,7 +181,8 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
   return (
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-6" dir={dir}>
       <div className="absolute inset-0" style={{ backgroundColor: "rgba(6,15,31,0.72)", backdropFilter: "blur(6px)" }} onClick={onClose} />
-      <div className="relative w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl" style={{ backgroundColor: C.ivory }}>
+        <div className="relative w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl" style={{ backgroundColor: C.ivory }}>
+        <button type="button" onClick={onLangChange} className="absolute top-4 end-16 z-20 rounded-full border px-3 py-1.5 text-[11px] font-bold" style={{ borderColor: C.border, color: C.blue, background: C.white }}>{lang === "fr" ? "العربية" : "Français"}</button>
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 md:px-7 py-4 border-b"
           style={{ backgroundColor: "rgba(255,255,255,0.92)", backdropFilter: "blur(10px)", borderColor: C.border }}>
@@ -214,23 +222,25 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
 
         {/* LOGIN */}
         {!authed && !checkingAdmin && (
-          <div className="px-5 md:px-7 py-10 max-w-md mx-auto">
+          <div className="px-5 md:px-7 py-8 max-w-4xl mx-auto">
+            <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-6 items-stretch">
+            <div className="hidden lg:flex rounded-2xl p-6 flex-col justify-between" style={{ background: `linear-gradient(145deg, ${C.navyDeep}, ${C.navyLight})`, color: C.white }}><div><div className="flex items-center gap-2 mb-5"><Logo variant="compact" theme="dark" size={42} /><span className="font-bold text-sm">APC · Mauritanie</span></div><div className="text-[10px] uppercase tracking-[0.18em] font-bold mb-3" style={{ color: C.goldLight }}>{lang === "ar" ? "تجربة أكاديمية متقدمة" : "Premium Academic Experience"}</div><h2 className="text-2xl font-bold leading-tight" style={{ fontFamily: "var(--font-display)" }}>{lang === "ar" ? "ذكاء المخاطر المناخية من أجل موريتانيا قادرة على الصمود." : "Intelligence des risques climatiques pour une Mauritanie résiliente."}</h2><p className="text-xs leading-relaxed mt-4" style={{ color: "#B9C6DA" }}>{lang === "ar" ? "تحليل تقني ومالي وأكاديمي لآليات التأمين التأشيري في قطاعي الزراعة وتربية الماشية." : "Analyse technique, financière et académique des mécanismes paramétriques pour l'agriculture et l'élevage."}</p></div><div className="grid grid-cols-3 gap-2 text-[10px]" style={{ color: "#B9C6DA" }}><span className="rounded-lg border p-2" style={{ borderColor: "rgba(255,255,255,.14)" }}>{lang === "ar" ? "بيانات" : "Data"}</span><span className="rounded-lg border p-2" style={{ borderColor: "rgba(255,255,255,.14)" }}>{lang === "ar" ? "مخاطر" : "Risk"}</span><span className="rounded-lg border p-2" style={{ borderColor: "rgba(255,255,255,.14)" }}>{lang === "ar" ? "مالية" : "Finance"}</span></div></div>
+            <div>
             {!configured && (
               <div className="rounded-xl border p-4 mb-6 text-xs leading-relaxed" style={{ borderColor: `${C.orange}55`, backgroundColor: C.orangeSoft, color: C.orange }}>
                 {x.notConfigured}
               </div>
             )}
-            <form onSubmit={handleLogin} className="bg-white rounded-2xl border p-6 shadow-sm" style={{ borderColor: C.border }}>
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})` }}>
-                <Lock size={18} color={C.goldLight} />
-              </div>
+            <form onSubmit={handleLogin} className="bg-white rounded-2xl border p-6 sm:p-7 shadow-sm" style={{ borderColor: C.border }}>
+              <button type="button" onClick={() => gateMode ? setGateStep("question") : onClose()} className="text-xs font-semibold flex items-center gap-1.5 mb-4" style={{ color: C.slate }}><ArrowLeft size={14} className={dir === "rtl" ? "rotate-180" : ""} /> {x.accessGate?.back || "Retour"}</button>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})` }}><Lock size={18} color={C.goldLight} /></div>
               <label className="text-xs font-semibold block mb-1.5" style={{ color: C.navy }}>{x.email}</label>
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                 className="input-polished w-full border rounded-lg px-3 py-2.5 text-sm mb-4" style={{ borderColor: C.border }} />
               <label className="text-xs font-semibold block mb-1.5" style={{ color: C.navy }}>{x.password}</label>
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="input-polished w-full border rounded-lg px-3 py-2.5 text-sm mb-4" style={{ borderColor: C.border }} />
-              {authError && <p className="text-xs font-medium mb-4" style={{ color: C.red }}>{authError}</p>}
+              <div className="relative mb-3"><input type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="input-polished w-full border rounded-lg px-3 py-2.5 pe-11 text-sm" style={{ borderColor: C.border }} /><button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute end-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md" style={{ color: C.slate }} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
+              <label className="flex items-center gap-2 text-xs mb-4" style={{ color: C.slate }}><input type="checkbox" checked={rememberDevice} onChange={(e) => setRememberDevice(e.target.checked)} /> {x.remember || (lang === "ar" ? "تذكر هذا الجهاز" : "Se souvenir de cet appareil")}</label>
+              {authError && <p className="text-xs font-medium mb-4 rounded-lg px-3 py-2" style={{ color: C.red, background: C.redSoft }}>{authError}</p>}
               <button type="submit" disabled={busy}
                 className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg disabled:opacity-60"
                 style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})` }}>
@@ -238,6 +248,8 @@ export default function AdminPanel({ open, onClose, lang, x, finance, assumption
               </button>
               <p className="text-[11px] mt-4 text-center" style={{ color: C.slateLight }}>{x.adminHint}</p>
             </form>
+            </div>
+            </div>
           </div>
         )}
 
@@ -309,27 +321,28 @@ function AdminOverview({ x, team, lang }) {
 
 /* ---------------- Éditeur des hypothèses ---------------- */
 function FinanceEditor({ draft, setDraft, onSave, saved, fx }) {
+  const [validation, setValidation] = useState("");
+  const percentKeys = ["growthRate", "claimFreq", "distribRate", "reinsRate", "costInflation", "discountRate"];
+  const validate = () => {
+    for (const key of Object.keys(fx.hyp)) {
+      const value = Number(draft[key]);
+      if (!Number.isFinite(value) || value < 0) { setValidation("Les valeurs doivent être numériques et non négatives / يجب أن تكون القيم رقمية وغير سالبة."); return; }
+      if (percentKeys.includes(key) && value > 100) { setValidation("Les pourcentages ne peuvent pas dépasser 100 % / لا يمكن أن تتجاوز النسب 100٪."); return; }
+    }
+    if (Number(draft.premiumAvg) < 0 || Number(draft.indemnityAvg) < 0) { setValidation("La prime et l'indemnité ne peuvent pas être négatives / لا يمكن أن يكون القسط أو التعويض سالبًا."); return; }
+    setValidation("");
+    onSave();
+  };
   return (
     <Card>
+      <div className="rounded-xl border p-4 mb-5" style={{ borderColor: `${C.blue}33`, background: C.blueSoft }}><div className="text-xs font-bold" style={{ color: C.navy }}>Data quality / جودة البيانات</div><div className="text-[11px] mt-1" style={{ color: C.slate }}>Les valeurs sont contrôlées avant sauvegarde : non-négativité, pourcentages ≤ 100 %, cohérence des hypothèses.</div></div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {Object.keys(fx.hyp).map((k) => (
-          <div key={k}>
-            <label className="text-xs font-semibold block mb-1.5" style={{ color: C.navy }}>{fx.hyp[k]}</label>
-            <input type="number" value={draft[k] ?? ""} onChange={(e) => setDraft({ ...draft, [k]: Number(e.target.value) || 0 })}
-              className="input-polished w-full border rounded-lg px-3 py-2 text-sm" style={{ borderColor: C.border }} />
-          </div>
+          <div key={k}><label className="text-xs font-semibold block mb-1.5" style={{ color: C.navy }}>{fx.hyp[k]}</label><input type="number" min="0" max={percentKeys.includes(k) ? "100" : undefined} value={draft[k] ?? ""} onChange={(e) => setDraft({ ...draft, [k]: Number(e.target.value) || 0 })} className="input-polished w-full border rounded-lg px-3 py-2 text-sm" style={{ borderColor: C.border }} /></div>
         ))}
       </div>
-      <div className="flex flex-wrap gap-3">
-        <button onClick={onSave} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-2 transition-all hover:-translate-y-px"
-          style={{ background: `linear-gradient(135deg, ${C.green}, #146644)` }}>
-          <Save size={14} /> {saved ? fx.saved : (fx.save || "Save")}
-        </button>
-        <button onClick={() => setDraft({ ...DEFAULT_ASSUMPTIONS })} className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-black/5"
-          style={{ borderColor: C.border, color: C.slate }}>
-          {fx.reset}
-        </button>
-      </div>
+      {validation && <div className="rounded-lg px-3 py-2 mb-4 text-xs font-semibold" style={{ background: C.redSoft, color: C.red }}>{validation}</div>}
+      <div className="flex flex-wrap gap-3"><button onClick={validate} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white flex items-center gap-2 transition-all hover:-translate-y-px" style={{ background: `linear-gradient(135deg, ${C.green}, #146644)` }}><Save size={14} /> {saved ? fx.saved : (fx.save || "Save")}</button><button onClick={() => { setValidation(""); setDraft({ ...DEFAULT_ASSUMPTIONS }); }} className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-black/5" style={{ borderColor: C.border, color: C.slate }}>{fx.reset}</button></div>
     </Card>
   );
 }

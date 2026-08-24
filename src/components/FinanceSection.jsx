@@ -3,7 +3,7 @@ import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell,
 } from "recharts";
-import { Lock } from "lucide-react";
+import { Lock, SlidersHorizontal, Activity, Info } from "lucide-react";
 import { C, Card, SectionTitle, DataBadge, Tip, fmtNumber } from "./shared";
 import { DEFAULT_ASSUMPTIONS, projectYears, breakEven, roi, npv, irr, breakEvenCurve, fmtCompact, SCENARIOS } from "../finance/engine";
 
@@ -25,6 +25,7 @@ export default function FinanceSection({ x, lang, badges, assumptions, isAdmin }
   const [tab, setTab] = useState(0);
   const a = { ...DEFAULT_ASSUMPTIONS, ...(assumptions || {}) };
   const [rate, setRate] = useState(a.discountRate);
+  const [model, setModel] = useState({ insured: 1, price: 1, frequency: 1, reinsurance: 1, inflation: 1 });
 
   const safe = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
   Object.keys(a).forEach((k) => { if (typeof a[k] === "number") a[k] = safe(a[k]); });
@@ -54,6 +55,9 @@ export default function FinanceSection({ x, lang, badges, assumptions, isAdmin }
 
   const fmt = (v) => fmtNumber(v, lang);
   const y3 = rows[2];
+  const modelA = useMemo(() => ({ ...a, insuredY1: a.insuredY1 * model.insured, premiumAvg: a.premiumAvg * model.price, claimFreq: Math.min(100, a.claimFreq * model.frequency), reinsRate: Math.min(100, a.reinsRate * model.reinsurance), costInflation: Math.min(100, a.costInflation * model.inflation) }), [a, model]);
+  const modelRows = useMemo(() => projectYears(modelA), [modelA]);
+  const modelNet = modelRows.reduce((sum, row) => sum + row.resultNet, 0);
 
   return (
     <section id="financier" className="relative py-16 md:py-20 overflow-hidden" style={{ backgroundColor: C.ivory }}>
@@ -313,6 +317,18 @@ export default function FinanceSection({ x, lang, badges, assumptions, isAdmin }
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
+          </div>
+        )}
+
+        {/* INTERACTIVE MODEL BUILDER */}
+        {tab === 6 && (
+          <div className="grid lg:grid-cols-[0.85fr_1.15fr] gap-6">
+            <Card>
+              <div className="flex items-start gap-3 mb-5"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: C.blueSoft, color: C.blue }}><SlidersHorizontal size={18} /></div><div><h3 className="text-lg font-bold" style={{ color: C.navy }}>{x.model.title}</h3><p className="text-xs leading-relaxed mt-1" style={{ color: C.slate }}>{x.model.desc}</p></div></div>
+              <div className="space-y-5">{[["insured", x.model.insured], ["price", x.model.price], ["frequency", x.model.frequency], ["reinsurance", x.model.reinsurance], ["inflation", x.model.inflation]].map(([key, label]) => <div key={key}><div className="flex justify-between text-xs font-semibold mb-2" style={{ color: C.navy }}><span>{label}</span><span style={{ color: C.blue }}>{model[key].toFixed(2)}×</span></div><input aria-label={label} type="range" min={key === "frequency" ? 0.5 : 0.7} max={key === "insured" ? 2 : 1.5} step="0.05" value={model[key]} onChange={(e) => setModel({ ...model, [key]: Number(e.target.value) })} className="w-full" style={{ "--val": `${((model[key] - (key === "frequency" ? 0.5 : 0.7)) / ((key === "insured" ? 2 : 1.5) - (key === "frequency" ? 0.5 : 0.7))) * 100}%` }} /></div>)}</div>
+              <div className="rounded-xl border p-4 mt-6 text-xs leading-relaxed flex items-start gap-2" style={{ background: C.ivory, borderColor: C.border, color: C.slate }}><Info size={14} className="shrink-0" style={{ color: C.blue }} /> {x.model.formula}</div>
+            </Card>
+            <div className="space-y-6"><Card><div className="flex items-center justify-between gap-3 mb-5"><div className="flex items-center gap-2"><Activity size={18} style={{ color: C.green }} /><h3 className="text-sm font-bold" style={{ color: C.navy }}>{x.model.result}</h3></div><DataBadge type="simulation" labels={badges} /></div><div className="grid sm:grid-cols-3 gap-3 mb-5">{[[x.model.scenario, x.model.central, C.blue], [x.returns.roi, `${roi(modelRows, a.initialInvestment).toFixed(1)} %`, C.green], [x.returns.npv, `${fmt(npv(modelA, modelRows))} MRU`, npv(modelA, modelRows) >= 0 ? C.green : C.orange]].map(([label, value, tone]) => <div key={label} className="rounded-xl border p-4" style={{ borderColor: C.border, background: C.ivory }}><div className="text-[10px] uppercase tracking-wider" style={{ color: C.slateLight }}>{label}</div><div className="text-lg font-bold mt-2" style={{ color: tone, fontFamily: "var(--font-display)" }}>{value}</div></div>)}</div><ResponsiveContainer width="100%" height={270}><LineChart data={modelRows.map((row) => ({ ...row, name: `${lang === "ar" ? "سنة" : "Année"} ${row.year}` }))}><CartesianGrid strokeDasharray="3 3" stroke={C.border} /><XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 10 }} tickFormatter={tickFmt(lang)} /><Tooltip formatter={(v) => `${fmt(v)} MRU`} /><ReferenceLine y={0} stroke={C.slateLight} /><Line type="monotone" dataKey="resultNet" name={lang === "ar" ? "صافي النتيجة" : "Résultat net"} stroke={C.green} strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="premiums" name={lang === "ar" ? "الأقساط" : "Primes"} stroke={C.blue} strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></Card><Card className="!p-4"><div className="text-xs font-semibold" style={{ color: C.slate }}>{lang === "ar" ? "ملاحظة شفافية" : "Note de transparence"}</div><div className="text-xs mt-2 leading-relaxed" style={{ color: C.slateLight }}>{lang === "ar" ? "المؤشرات تتغير محليًا دون إعادة تحميل الصفحة، وتعتمد فقط على الفرضيات الحالية." : "Les indicateurs se recalculent localement sans rechargement et reposent uniquement sur les hypothèses courantes."}</div></Card></div>
           </div>
         )}
 

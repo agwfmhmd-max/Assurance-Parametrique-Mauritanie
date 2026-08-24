@@ -20,6 +20,7 @@ import { EXT } from "./i18n/extend";
 import { DEFAULT_ASSUMPTIONS } from "./finance/engine";
 import { loadAssumptions, saveAssumptions, loadTeam } from "./services/data";
 import KpiDashboard from "./components/KpiDashboard";
+import ResearchSynthesis from "./components/ResearchSynthesis";
 import MarcheSection from "./components/MarcheSection";
 import { TechniqueSection, TriggerSimulator } from "./components/TechniqueSection";
 import FinanceSection from "./components/FinanceSection";
@@ -960,7 +961,7 @@ export default function ParametricInsurancePlatform() {
   const ratio = useMemo(() => (commercialPremium > 0 ? indemnAmount / commercialPremium : 0), [indemnAmount, commercialPremium]);
 
   const navItems = [
-    ["home", t.nav.home], ["dashboard", x.nav.dashboard], ["etude", t.nav.etude],
+    ["home", t.nav.home], ["dashboard", x.nav.dashboard], ["synthese", lang === "ar" ? "خلاصة الجدوى" : "Synthèse"], ["etude", t.nav.etude],
     ["marche", x.nav.marche], ["risques", t.nav.risques],
     ["parametrique", t.nav.parametrique], ["technique", x.nav.technique],
     ["financier", x.nav.financier], ["declenchement", lang === "ar" ? "التفعيل" : "Déclenchement"],
@@ -1018,6 +1019,7 @@ export default function ParametricInsurancePlatform() {
         onAuthenticated={() => { setAccessGranted(true); setAdminOpen(true); }}
         onUnauthenticated={() => { setAccessGranted(false); setAdminOpen(false); }}
         onClose={() => {}}
+        onLangChange={() => setLang(l => l === "fr" ? "ar" : "fr")}
         lang={lang}
         dir={dir}
         x={x.admin}
@@ -1212,6 +1214,9 @@ export default function ParametricInsurancePlatform() {
 
       {/* DASHBOARD KPI */}
       <KpiDashboard x={x.dashboard} badges={x.badges} lang={lang} assumptions={assumptions} />
+
+      {/* SYNTHÈSE UNIFIÉE */}
+      <ResearchSynthesis lang={lang} assumptions={assumptions} />
 
       {/* ETUDE */}
       <section id="etude" className="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-20">
@@ -2008,6 +2013,7 @@ export default function ParametricInsurancePlatform() {
       <AdminPanel
         open={adminOpen}
         onClose={() => setAdminOpen(false)}
+        onLangChange={() => setLang(l => l === "fr" ? "ar" : "fr")}
         onUnauthenticated={() => { setAccessGranted(false); setAdminOpen(false); }}
         lang={lang}
         dir={dir}

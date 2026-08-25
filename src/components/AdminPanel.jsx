@@ -1,13 +1,36 @@
-import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, LogOut, Save, Plus, Trash2, Pencil, Users, Settings2, LayoutDashboard, FileText, Upload, Eye, EyeOff, ArrowLeft, ShieldCheck, CloudRain, BarChart3 } from "lucide-react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { X, Lock, LogOut, Save, Plus, Trash2, Pencil, Users, Settings2, LayoutDashboard, FileText, Upload, Eye, EyeOff, ArrowLeft, ShieldCheck, CloudRain, BarChart3, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { C, Card } from "./shared";
 import Logo from "./Logo";
 import { DEFAULT_ASSUMPTIONS } from "../finance/engine";
+import { PLAYFUL_GATE } from "../config";
+import { playLaughSound } from "../lib/laughSound";
 import {
   isSupabaseConfigured, loadTeam, saveTeamMember, deleteTeamMember,
   uploadMemberPhoto, saveSiteSettings, getEditLog, loadSiteSettings,
 } from "../services/data";
+
+const GATE_CONFETTI_COLORS = [C.gold, C.goldLight, C.blue, C.green, C.orange];
+
+/* بطاقة الجسيمات (كونفيتي) الخفيفة — بدون مكتبات خارجية */
+function GateConfetti() {
+  const pieces = useMemo(() => Array.from({ length: 16 }, (_, i) => ({
+    id: i,
+    left: 4 + Math.random() * 92,
+    delay: Math.random() * 0.25,
+    duration: 1.1 + Math.random() * 0.8,
+    color: GATE_CONFETTI_COLORS[i % GATE_CONFETTI_COLORS.length],
+  })), []);
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl" aria-hidden="true">
+      {pieces.map((p) => (
+        <span key={p.id} className="gate-confetti-piece"
+          style={{ left: `${p.left}%`, backgroundColor: p.color, animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s` }} />
+      ))}
+    </div>
+  );
+}
 
 /* ============================================================
    ESPACE SUPERVISEUR
@@ -30,7 +53,25 @@ export default function AdminPanel({ open, onClose, onLangChange, lang, x, finan
   const [saved, setSaved] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [gateStep, setGateStep] = useState(gateMode ? "question" : "login");
+  const [laughLineIdx, setLaughLineIdx] = useState(0);
+  const [gateMuted, setGateMuted] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("apc-gate-muted") === "1" : false));
   const configured = isSupabaseConfigured();
+
+  function toggleGateMute() {
+    setGateMuted((m) => {
+      const next = !m;
+      try { localStorage.setItem("apc-gate-muted", next ? "1" : "0"); } catch { /* noop */ }
+      return next;
+    });
+  }
+
+  function triggerLaughScreen(step, linesPool) {
+    if (Array.isArray(linesPool) && linesPool.length > 0) {
+      setLaughLineIdx(Math.floor(Math.random() * linesPool.length));
+    }
+    if (PLAYFUL_GATE) playLaughSound(gateMuted);
+    setGateStep(step);
+  }
 
   const verifyAdminSession = async (nextSession) => {
     if (!nextSession?.user?.id || !configured) {
@@ -81,7 +122,7 @@ export default function AdminPanel({ open, onClose, onLangChange, lang, x, finan
     return () => { active = false; sub.subscription.unsubscribe(); };
   }, [configured]);
 
-  useEffect(() => { if (open) { setDraft({ ...assumptions }); setSaved(false); setAuthError(null); setActionError(null); setShowPassword(false); setRememberDevice(localStorage.getItem("apc-remember-device") !== "0"); if (gateMode) setGateStep("question"); } }, [open, gateMode]); // eslint-disable-line
+  useEffect(() => { if (open) { setDraft({ ...assumptions }); setSaved(false); setAuthError(null); setActionError(null); setShowPassword(false); setRememberDevice(localStorage.getItem("apc-remember-device") !== "0"); setGateStep(gateMode ? "question" : "login"); } }, [open, gateMode]); // eslint-disable-line
 
   if (!open) return null;
   const authed = !!session && isAdmin && !checkingAdmin;
@@ -110,7 +151,7 @@ export default function AdminPanel({ open, onClose, onLangChange, lang, x, finan
                 style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})` }}>
                 {x.accessGate.yes}
               </button>
-              <button type="button" onClick={() => setGateStep("no")}
+              <button type="button" onClick={() => triggerLaughScreen("no", x.accessGate.laughLines)}
                 className="py-3.5 px-5 rounded-xl text-sm font-bold border transition-all hover:-translate-y-px hover:bg-black/5"
                 style={{ borderColor: C.border, color: C.slate }}>
                 {x.accessGate.no}
@@ -122,21 +163,51 @@ export default function AdminPanel({ open, onClose, onLangChange, lang, x, finan
     );
   }
 
-  if (gateMode && !authed && !checkingAdmin && gateStep === "no") {
+  if (!authed && !checkingAdmin && (gateStep === "no" || gateStep === "wrongpass")) {
+    const isWrongPass = gateStep === "wrongpass";
+    const linesPool = isWrongPass ? x.accessGate.wrongPassLines : x.accessGate.laughLines;
+    const line = (Array.isArray(linesPool) && linesPool[laughLineIdx]) || linesPool?.[0] || x.wrongCreds;
+    const backTarget = isWrongPass ? "login" : "question";
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6" dir={dir}>
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 0%, ${C.navyLight}, ${C.navyDeep} 62%, #020812)` }} />
-        <div className="relative w-full max-w-lg rounded-3xl border p-7 sm:p-9 shadow-2xl text-center" style={{ backgroundColor: "rgba(255,255,255,0.98)", borderColor: `${C.gold}55` }}>
-          <button type="button" onClick={onLangChange} className="absolute top-4 end-4 rounded-full border px-3 py-1.5 text-[11px] font-bold" style={{ borderColor: C.border, color: C.blue }}>{lang === "fr" ? "العربية" : "Français"}</button>
-            <div className="text-5xl mb-5" role="img" aria-label="laughing">🤣</div>
-          <div className="text-2xl sm:text-3xl font-extrabold mb-6" style={{ color: C.navy }}>
-            أيو شتعدل هون  ما تشوفو 🤣
+        <div className="relative w-full max-w-lg rounded-3xl border p-7 sm:p-9 shadow-2xl text-center overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.98)", borderColor: `${C.gold}55` }}>
+          {PLAYFUL_GATE && <GateConfetti />}
+          <div className="relative flex items-center justify-between mb-2">
+            <button type="button" onClick={toggleGateMute}
+              className="rounded-full border w-8 h-8 flex items-center justify-center"
+              style={{ borderColor: C.border, color: C.slate }}
+              aria-label={gateMuted ? x.accessGate.unmuteLabel : x.accessGate.muteLabel}
+              title={gateMuted ? x.accessGate.unmuteLabel : x.accessGate.muteLabel}>
+              {gateMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            </button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onLangChange} className="rounded-full border px-3 py-1.5 text-[11px] font-bold" style={{ borderColor: C.border, color: C.blue }}>{lang === "fr" ? "العربية" : "Français"}</button>
+              {!gateMode && (
+                <button type="button" onClick={onClose} className="rounded-full border w-8 h-8 flex items-center justify-center" style={{ borderColor: C.border, color: C.slate }} aria-label={x.close}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
           </div>
-          <button type="button" onClick={() => setGateStep("question")}
-            className="py-3 px-6 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"
-            style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})` }}>
-            {x.accessGate.back}
-          </button>
+          <div className="relative text-6xl mb-5 gate-emoji-pop">
+            <span className="inline-block gate-emoji-wiggle" role="img" aria-label="laughing">{isWrongPass ? "🔐😂" : "🤣"}</span>
+          </div>
+          <div className="relative text-xl sm:text-2xl font-extrabold mb-7 leading-snug gate-text-in" style={{ color: C.navy }}>
+            {line}
+          </div>
+          <div className="relative flex flex-col sm:flex-row gap-3 justify-center">
+            <button type="button" onClick={() => triggerLaughScreen(gateStep, linesPool)}
+              className="py-3 px-6 rounded-xl text-sm font-bold border transition-all hover:-translate-y-px hover:bg-black/5"
+              style={{ borderColor: C.border, color: C.slate }}>
+              {x.accessGate.retry}
+            </button>
+            <button type="button" onClick={() => setGateStep(backTarget)}
+              className="py-3 px-6 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"
+              style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})` }}>
+              {x.accessGate.back}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -150,7 +221,12 @@ export default function AdminPanel({ open, onClose, onLangChange, lang, x, finan
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) {
-      setAuthError(x.wrongCreds);
+      if (PLAYFUL_GATE) {
+        setPassword("");
+        triggerLaughScreen("wrongpass", x.accessGate.wrongPassLines);
+      } else {
+        setAuthError(x.wrongCreds);
+      }
       return;
     }
     if (data.session) {
@@ -158,7 +234,12 @@ export default function AdminPanel({ open, onClose, onLangChange, lang, x, finan
       if (!allowed) {
         await supabase.auth.signOut();
         setSession(null);
-        setAuthError(x.notAdmin || "ليس لديك صلاحية المشرف / Vous n'avez pas les droits administrateur.");
+        if (PLAYFUL_GATE) {
+          setPassword("");
+          triggerLaughScreen("wrongpass", x.accessGate.wrongPassLines);
+        } else {
+          setAuthError(x.notAdmin || "ليس لديك صلاحية المشرف / Vous n'avez pas les droits administrateur.");
+        }
         return;
       }
       setSession(data.session);

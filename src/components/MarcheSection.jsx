@@ -73,7 +73,7 @@ export default function MarcheSection({ x, lang, badges }) {
 
       {/* SWOT */}
       <h3 className="text-lg font-bold mb-4" style={{ color: C.navy }}>{x.swot.title}</h3>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {["s", "w", "o", "th"].map((k) => (
           <Card key={k} className="border-t-4" style={{ borderTopColor: swotColors[k] }}>
             <div className="font-bold text-sm mb-3" style={{ color: swotColors[k] }}>{x.swot[k].t}</div>
@@ -87,6 +87,38 @@ export default function MarcheSection({ x, lang, badges }) {
           </Card>
         ))}
       </div>
+
+      {/* Concurrents potentiels */}
+      {x.competitors && (
+        <>
+          <h3 className="text-lg font-bold mb-4" style={{ color: C.navy }}>{x.competitorsTitle}</h3>
+          <div className="grid sm:grid-cols-2 gap-4 mb-10">
+            {x.competitors.map((c, i) => (
+              <Card key={i} className="!p-4">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="font-semibold text-sm" style={{ color: C.navy }}>{c.t}</div>
+                  <DataBadge type={c.type || "hypothese"} labels={badges} />
+                </div>
+                <p className="text-xs leading-relaxed" style={{ color: C.slate }}>{c.d}</p>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Barrières à l'entrée */}
+      {x.barriers && (
+        <Card>
+          <h3 className="text-sm font-bold mb-4" style={{ color: C.navy }}>{x.barriersTitle}</h3>
+          <ul className="grid sm:grid-cols-2 gap-3">
+            {x.barriers.map((b, i) => (
+              <li key={i} className="text-xs flex items-start gap-2 leading-relaxed rounded-lg border p-3" style={{ color: C.slate, borderColor: C.border, background: C.ivory }}>
+                <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: C.orange }} /> {b}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </section>
   );
 }

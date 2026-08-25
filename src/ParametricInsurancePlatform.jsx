@@ -88,6 +88,33 @@ const T = {
         "Évaluer les risques, avantages et limites du modèle proposé.",
         "Simuler le calcul de la prime et de l'indemnisation.",
       ],
+      solutionTitle: "La solution envisagée",
+      solutionText: "Plutôt que d'indemniser après expertise d'une perte individuelle, le modèle paramétrique déclenche automatiquement le paiement dès qu'un indice objectif — pluviométrie, indice de végétation (NDVI), température — franchit un seuil défini à l'avance. L'assuré est indemnisé sur la base d'un événement mesuré, sans visite terrain préalable, ce qui réduit les délais et les coûts de gestion.",
+      roadmapTitle: "Feuille de route de mise en œuvre",
+      roadmap: [
+        { title: "Données historiques", text: "Collecte et documentation des séries climatiques et satellitaires (stations météo, imagerie satellite)." },
+        { title: "Conception des seuils", text: "Calibrage des indices de déclenchement par zone et par filière (agricole / pastorale)." },
+        { title: "Modèle actuariel", text: "Construction du modèle de tarification, de réassurance et du capital de réserve." },
+        { title: "Partenariats", text: "Discussions avec assureurs locaux, régulateur, banque centrale et bailleurs de fonds." },
+        { title: "Pilote localisé", text: "Test à petite échelle dans une zone limitée avant généralisation." },
+        { title: "Distribution numérique", text: "Souscription et collecte via portefeuilles électroniques et opérateurs télécoms." },
+      ],
+      challengesTitle: "Principaux défis à anticiper",
+      challenges: [
+        { icon: "shield", title: "Risque de base", text: "Écart possible entre l'indice mesuré et la perte réellement subie par l'assuré." },
+        { icon: "cloud", title: "Réseau d'observation", text: "Densité encore limitée des stations météorologiques sur le territoire." },
+        { icon: "coin", title: "Pouvoir d'achat", text: "Capacité contributive limitée des ménages ruraux, nécessitant un appui aux primes." },
+        { icon: "building", title: "Cadre réglementaire", text: "Encadrement du secteur assurantiel à adapter à l'assurance indicielle." },
+        { icon: "layers", title: "Littératie financière", text: "Besoin de sensibilisation et d'éducation assurantielle des bénéficiaires." },
+        { icon: "gauge", title: "Dépendance aux bailleurs", text: "Recours probable à un financement externe lors des premières phases." },
+      ],
+      impactTitle: "Impact attendu",
+      impactText: "Un système d'assurance paramétrique bien calibré viserait à renforcer la résilience financière des ménages ruraux face aux chocs climatiques, tout en structurant un marché aujourd'hui quasiment inexploré.",
+      impactPoints: [
+        "Réduction potentielle des ventes de bétail en détresse lors des crises.",
+        "Amélioration de la capacité de résilience financière des ménages agricoles et pastoraux.",
+        "Attractivité accrue du marché mauritanien pour la réassurance internationale.",
+      ],
     },
     risques: {
       title: "Risques climatiques en Mauritanie", eyebrow: "02 · Tableau de bord",
@@ -338,6 +365,33 @@ const T = {
         "اقتراح نموذج ملائم لقطاع تربية الماشية.",
         "تقييم مخاطر النموذج المقترح ومزاياه وحدوده.",
         "محاكاة احتساب القسط والتعويض.",
+      ],
+      solutionTitle: "الحل المقترح",
+      solutionText: "بدل التعويض بعد خبرة ميدانية لخسارة فردية، يُفعِّل النموذج التأشيري الدفع تلقائيًا فور تجاوز مؤشر موضوعي — كمية الأمطار، المؤشر النباتي NDVI، درجة الحرارة — عتبة محددة مسبقًا. يُعوَّض المؤمَّن عليه استنادًا إلى حدث مقيس دون معاينة ميدانية مسبقة، ما يقلّص آجال وتكاليف المعالجة.",
+      roadmapTitle: "خارطة طريق التنفيذ",
+      roadmap: [
+        { title: "البيانات التاريخية", text: "جمع وتوثيق السلاسل المناخية والفضائية (محطات الأرصاد، الصور الساتلية)." },
+        { title: "تصميم العتبات", text: "معايرة مؤشرات التفعيل حسب المنطقة والقطاع (زراعي / رعوي)." },
+        { title: "النموذج الاكتواري", text: "بناء نموذج التسعير وإعادة التأمين ورأس المال الاحتياطي." },
+        { title: "الشراكات", text: "نقاشات مع شركات التأمين المحلية، الجهة التنظيمية، البنك المركزي والجهات المانحة." },
+        { title: "تجربة تجريبية محدودة", text: "اختبار على نطاق صغير في منطقة محدودة قبل التعميم." },
+        { title: "التوزيع الرقمي", text: "الاشتراك والتحصيل عبر المحافظ الإلكترونية ومشغلي الاتصالات." },
+      ],
+      challengesTitle: "أبرز التحديات الواجب استباقها",
+      challenges: [
+        { icon: "shield", title: "خطر الأساس", text: "احتمال وجود فجوة بين المؤشر المقيس والخسارة الفعلية التي يتكبدها المؤمَّن عليه." },
+        { icon: "cloud", title: "شبكة الرصد", text: "كثافة لا تزال محدودة لمحطات الأرصاد الجوية على مستوى التراب الوطني." },
+        { icon: "coin", title: "القدرة الشرائية", text: "قدرة تمويلية محدودة للأسر الريفية، ما يستوجب دعمًا للأقساط." },
+        { icon: "building", title: "الإطار التنظيمي", text: "ضرورة تكييف تنظيم قطاع التأمين مع التأمين التأشيري." },
+        { icon: "layers", title: "محو الأمية المالية", text: "الحاجة إلى توعية وتثقيف تأميني للمستفيدين." },
+        { icon: "gauge", title: "الاعتماد على الجهات المانحة", text: "لجوء مرجّح لتمويل خارجي خلال المراحل الأولى." },
+      ],
+      impactTitle: "الأثر المتوقع",
+      impactText: "يهدف نظام تأمين تأشيري جيد المعايرة إلى تعزيز القدرة المالية للأسر الريفية على الصمود أمام الصدمات المناخية، مع بناء سوق لا يزال إلى حد بعيد غير مستغل.",
+      impactPoints: [
+        "تراجع محتمل لعمليات بيع الماشية الاضطراري وقت الأزمات.",
+        "تحسّن القدرة على الصمود المالي للأسر الزراعية والرعوية.",
+        "جاذبية أكبر للسوق الموريتاني أمام إعادة التأمين الدولي.",
       ],
     },
     risques: {
@@ -1216,7 +1270,7 @@ export default function ParametricInsurancePlatform() {
       <KpiDashboard x={x.dashboard} badges={x.badges} lang={lang} assumptions={assumptions} />
 
       {/* SYNTHÈSE UNIFIÉE */}
-      <ResearchSynthesis lang={lang} assumptions={assumptions} />
+      <ResearchSynthesis lang={lang} assumptions={assumptions} badges={x.badges} />
 
       {/* ETUDE */}
       <section id="etude" className="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-20">
@@ -1254,6 +1308,58 @@ export default function ParametricInsurancePlatform() {
               <p className="text-sm leading-relaxed" style={{ color: C.slate }}>{o}</p>
             </Card>
           ))}
+        </div>
+
+        {/* La solution envisagée */}
+        <Reveal className="rounded-2xl p-6 md:p-8 mt-8 mb-8 border-s-4" style={{ background: `linear-gradient(120deg, ${C.greenSoft}, #F4FBF7)`, borderColor: C.green }}>
+          <div className="text-[11px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: C.green }}>{t.etude.solutionTitle}</div>
+          <p className="text-sm md:text-base leading-relaxed" style={{ color: C.navy }}>{t.etude.solutionText}</p>
+        </Reveal>
+
+        {/* Feuille de route */}
+        <h3 className="text-lg font-bold mb-4" style={{ color: C.navy }}>{t.etude.roadmapTitle}</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+          {t.etude.roadmap.map((step, i) => (
+            <Card key={i} className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${C.navyLight}, ${C.navy})`, color: C.goldLight }}>{i + 1}</span>
+                <div className="font-semibold text-sm" style={{ color: C.navy }}>{step.title}</div>
+              </div>
+              <p className="text-xs leading-relaxed" style={{ color: C.slate }}>{step.text}</p>
+            </Card>
+          ))}
+        </div>
+
+        {/* Défis */}
+        <h3 className="text-lg font-bold mb-4" style={{ color: C.navy }}>{t.etude.challengesTitle}</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+          {t.etude.challenges.map((c, i) => {
+            const Icon = ICONS[c.icon] || Info;
+            return (
+              <Card key={i} className="!p-4 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.orangeSoft }}>
+                  <Icon size={16} style={{ color: C.orange }} />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm mb-1" style={{ color: C.navy }}>{c.title}</div>
+                  <p className="text-xs leading-relaxed" style={{ color: C.slate }}>{c.text}</p>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Impact attendu */}
+        <div className="rounded-2xl p-6 md:p-8 border" style={{ background: `linear-gradient(135deg, ${C.navy}, ${C.navyLight})`, borderColor: `${C.gold}33` }}>
+          <div className="text-[11px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: C.goldLight }}>{t.etude.impactTitle}</div>
+          <p className="text-sm md:text-base leading-relaxed mb-5" style={{ color: "#DCE6F5" }}>{t.etude.impactText}</p>
+          <ul className="grid sm:grid-cols-3 gap-3">
+            {t.etude.impactPoints.map((p, i) => (
+              <li key={i} className="rounded-xl p-3.5 text-xs leading-relaxed flex items-start gap-2" style={{ background: "rgba(255,255,255,0.06)", color: "#C7D4EA", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: C.goldLight }} /> {p}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

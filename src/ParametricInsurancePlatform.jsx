@@ -27,6 +27,12 @@ import FinanceSection from "./components/FinanceSection";
 import { ScenariosSection, SensibiliteSection } from "./components/ScenariosSensibilite";
 import { TeamSection, ConclusionSection } from "./components/TeamConclusion";
 import AdminPanel from "./components/AdminPanel";
+import { WILAYAS, ZONE_AR } from "./services/climate/dataSources";
+import { fetchClimateBundle } from "./services/climate/climateService";
+import { buildStudyState, hashStudyState } from "./services/study/studyState";
+import { saveClimateRecords, saveStudyVersion } from "./services/study/studyRepository";
+import { downloadDocx } from "./services/reports/docxGenerator";
+import { downloadPptx } from "./services/reports/powerPointGenerator";
 
 /* ============================================================
    TRANSLATIONS
@@ -590,64 +596,15 @@ const T = {
 };
 
 /* ============================================================
-   SIMULATED DATA (clearly labeled academic simulation)
+   DONNÉES CLIMATIQUES — aucune série climatique fictive.
+   Les données proviennent du service climateService et sont marquées
+   par provenance. Les hypothèses financières restent des simulations.
    ============================================================ */
-const RAINFALL_DATA = [
-  { m: "Jan", precip: 5, ndvi: 22 }, { m: "Fév", precip: 3, ndvi: 20 }, { m: "Mar", precip: 2, ndvi: 18 },
-  { m: "Avr", precip: 4, ndvi: 21 }, { m: "Mai", precip: 12, ndvi: 28 }, { m: "Juin", precip: 28, ndvi: 40 },
-  { m: "Juil", precip: 61, ndvi: 58 }, { m: "Août", precip: 74, ndvi: 66 }, { m: "Sep", precip: 45, ndvi: 55 },
-  { m: "Oct", precip: 14, ndvi: 38 }, { m: "Nov", precip: 6, ndvi: 27 }, { m: "Déc", precip: 4, ndvi: 23 },
-];
-
-const ZONES = ["Trarza", "Brakna", "Gorgol", "Assaba", "Hodh El Gharbi", "Hodh Ech Chargui", "Guidimakha"];
-
-const ZONE_AR = {
-  "Trarza": "الترارزة", "Brakna": "البراكنة", "Gorgol": "كوركل", "Assaba": "العصابة",
-  "Hodh El Gharbi": "الحوض الغربي", "Hodh Ech Chargui": "الحوض الشرقي", "Guidimakha": "كيدي ماغا",
-};
-
-// Coordonnées réelles des chefs-lieux de wilaya, utilisées pour interroger l'API météo publique
-// Open-Meteo (données réelles en direct, gratuite, sans clé API).
-const ZONE_COORDS = {
-  "Trarza": { lat: 16.5145, lon: -15.8050, capital: "Rosso" },
-  "Brakna": { lat: 17.0501, lon: -13.9134, capital: "Aleg" },
-  "Gorgol": { lat: 16.1500, lon: -13.5000, capital: "Kaédi" },
-  "Assaba": { lat: 16.6167, lon: -11.4000, capital: "Kiffa" },
-  "Hodh El Gharbi": { lat: 16.6614, lon: -9.6014, capital: "Ayoun El Atrous" },
-  "Hodh Ech Chargui": { lat: 16.6167, lon: -7.2500, capital: "Néma" },
-  "Guidimakha": { lat: 15.1594, lon: -12.1844, capital: "Sélibaby" },
-};
-
-// Profils indicatifs par zone — ordres de grandeur académiques basés sur le gradient climatique
-// sahélien connu de la Mauritanie (aridité croissante du nord vers le sud), sourcés qualitativement
-// du Ministère de l'Environnement et du Développement Durable et de classifications climatiques
-// publiques (Köppen). Non officiels — à recalibrer avec les données de l'ONM.
-const ZONE_DETAILS = [
-  { zone: "Trarza", dominant: "agri", rainfall: "≈ 100 – 250 mm/an", risk: "severe" },
-  { zone: "Brakna", dominant: "mixte", rainfall: "≈ 150 – 300 mm/an", risk: "severe" },
-  { zone: "Gorgol", dominant: "agri", rainfall: "≈ 300 – 450 mm/an", risk: "vigilance" },
-  { zone: "Assaba", dominant: "elevage", rainfall: "≈ 200 – 350 mm/an", risk: "secheresse" },
-  { zone: "Hodh El Gharbi", dominant: "elevage", rainfall: "≈ 250 – 350 mm/an", risk: "secheresse" },
-  { zone: "Hodh Ech Chargui", dominant: "elevage", rainfall: "≈ 200 – 400 mm/an", risk: "critique" },
-  { zone: "Guidimakha", dominant: "mixte", rainfall: "≈ 400 – 600 mm/an", risk: "vigilance" },
-];
-
+const ZONES = WILAYAS.map(x => x.name);
 const DOMINANT_LABEL = {
   fr: { agri: "Agriculture", elevage: "Élevage", mixte: "Agriculture & élevage" },
   ar: { agri: "الزراعة", elevage: "تربية الماشية", mixte: "الزراعة وتربية الماشية" },
 };
-
-const RISK_TO_FREQ = { normal: 20, vigilance: 35, secheresse: 50, severe: 62, critique: 75 };
-const DROUGHT_FREQ = ZONE_DETAILS.map(z => ({ zone: z.zone, freq: RISK_TO_FREQ[z.risk] }));
-
-const PREMIUM_VS_INDEMNITY = [
-  { s: "Sc. 1", prime: 4200, indemnite: 0 },
-  { s: "Sc. 2", prime: 4200, indemnite: 12500 },
-  { s: "Sc. 3", prime: 4200, indemnite: 25000 },
-  { s: "Sc. 4", prime: 4200, indemnite: 50000 },
-  { s: "Sc. 5", prime: 4200, indemnite: 100000 },
-];
-
 const PIE_COLORS = [C.blue, C.blueLight, C.gold, C.orange];
 
 /* ============================================================
@@ -783,7 +740,7 @@ function PublicSurveyResults({ lang, s }) {
 /* ============================================================
    LIVE WEATHER — real data from the public Open-Meteo API (no key needed)
    ============================================================ */
-function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
+function LiveWeatherWidget({ lang, dir, w, zone, setZone, onBundle }) {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
   const [projection, setProjection] = useState([]);
@@ -791,70 +748,16 @@ function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
   const [error, setError] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
 
-  const addYears = (date, years) => {
-    const d = new Date(date + "T00:00:00Z");
-    d.setUTCFullYear(d.getUTCFullYear() + years);
-    return d.toISOString().slice(0, 10);
-  };
-
-  const yearStart = (year) => `${year}-01-01`;
-  const yearEnd = (year) => `${year}-12-31`;
-
-  const addDays = (date, days) => {
-    const d = new Date(date + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() + days);
-    return d.toISOString().slice(0, 10);
-  };
-
-  const today = () => new Date().toISOString().slice(0, 10);
-
-  function aggregateYears(times, temps, precs) {
-    const map = new Map();
-    times.forEach((date, i) => {
-      const year = String(date).slice(0, 4);
-      if (!map.has(year)) map.set(year, { year, t: [], rain: 0, n: 0 });
-      const row = map.get(year);
-      const t = Number(temps?.[i]);
-      const p = Number(precs?.[i]);
-      if (Number.isFinite(t)) row.t.push(t);
-      if (Number.isFinite(p)) row.rain += p;
-      row.n += 1;
-    });
-    return [...map.values()].map(x => ({
-      year: x.year,
-      temp: x.t.length ? x.t.reduce((a,b)=>a+b,0)/x.t.length : null,
-      rain: x.rain,
-    }));
-  }
-
   async function fetchWeather(z) {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const coords = ZONE_COORDS[z];
-      const now = today();
-      const currentYear = Number(now.slice(0, 4));
-      // Exactly five complete calendar years for the historical panel.
-      const pastStart = yearStart(currentYear - 5);
-      const pastEnd = yearEnd(currentYear - 1);
-      // Exactly five complete future calendar years for the climate projection panel.
-      const futureStart = yearStart(currentYear + 1);
-      const futureEnd = yearEnd(currentYear + 5);
-      const nearUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=7&forecast_days=16&timezone=auto`;
-      const histUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${pastStart}&end_date=${pastEnd}&daily=temperature_2m_mean,precipitation_sum&timezone=auto`;
-      const climateUrl = `https://climate-api.open-meteo.com/v1/climate?latitude=${coords.lat}&longitude=${coords.lon}&start_date=${futureStart}&end_date=${futureEnd}&models=EC_Earth3P_HR&daily=temperature_2m_mean,precipitation_sum&timezone=auto`;
-      const [nearRes, histRes, climateRes] = await Promise.all([fetch(nearUrl), fetch(histUrl), fetch(climateUrl)]);
-      if (!nearRes.ok || !histRes.ok || !climateRes.ok) throw new Error("network");
-      const [near, hist, climate] = await Promise.all([nearRes.json(), histRes.json(), climateRes.json()]);
-      setData(near);
-      setHistory(aggregateYears(hist.daily?.time || [], hist.daily?.temperature_2m_mean || [], hist.daily?.precipitation_sum || []));
-      setProjection(aggregateYears(climate.daily?.time || [], climate.daily?.temperature_2m_mean || [], climate.daily?.precipitation_sum || []));
-      setUpdatedAt(new Date());
-    } catch (_) {
-      setError(w.error);
-    } finally {
-      setLoading(false);
-    }
+      const bundle = await fetchClimateBundle(z);
+      setData(bundle.current);
+      setHistory(bundle.historical.map(x => ({ year:x.year, temp:x.temperature, rain:x.precipitation })));
+      setProjection(bundle.projections.map(x => ({ year:x.year, temp:x.temperature, rain:x.precipitation })));
+      setUpdatedAt(new Date(bundle.retrievedAt));
+      onBundle?.(bundle);
+    } catch (_) { setError(w.error); onBundle?.(null); } finally { setLoading(false); }
   }
 
   useEffect(() => { fetchWeather(zone); /* eslint-disable-next-line */ }, [zone]);
@@ -875,7 +778,7 @@ function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
     const tmax = data.daily.temperature_2m_max || [];
     const tmin = data.daily.temperature_2m_min || [];
     const prec = data.daily.precipitation_sum || [];
-    const todayDate = today();
+    const todayDate = new Date().toISOString().slice(0, 10);
     const firstFutureIdx = times.findIndex((date) => date >= todayDate);
     const startIdx = firstFutureIdx >= 0 ? firstFutureIdx : Math.max(0, times.length - 16);
     return times.slice(startIdx, startIdx + 16).map((date, k) => {
@@ -894,9 +797,9 @@ function LiveWeatherWidget({ lang, dir, w, zone, setZone }) {
         <div className="flex-1 min-w-[160px]"><label className="text-xs font-semibold mb-1.5 block" style={{ color: C.navy }}>{w.zoneLabel}</label><select value={zone} onChange={(e) => setZone(e.target.value)} className="select-polished w-full border rounded-lg px-3 py-2 text-sm bg-white" style={{ borderColor: C.border, color: C.navy }}>{ZONES.map(z => <option key={z} value={z}>{lang === "ar" ? ZONE_AR[z] : z}</option>)}</select></div>
         <button onClick={() => fetchWeather(zone)} className="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all duration-300 hover:-translate-y-px hover:shadow-md" style={{ borderColor: `${C.blue}55`, color: C.blue, backgroundColor: C.blueSoft }}><Repeat size={13} /> {w.refresh}</button>
       </div>
-      <div className="text-xs mb-4" style={{ color: C.slateLight }}>{w.capital}: {ZONE_COORDS[zone].capital}</div>
+      <div className="text-xs mb-4" style={{ color: C.slateLight }}>{w.capital}: {WILAYAS.find(x => x.name === zone)?.capital || zone}</div>
       {loading && <p className="text-sm" style={{ color: C.slate }}>{w.loading}</p>}
-      {error && !loading && <div className="rounded-lg p-4 border" style={{ borderColor: C.border, backgroundColor: C.ivory }}><p className="text-sm mb-4" style={{ color: C.slate }}>{error}</p><div className="flex flex-wrap gap-2"><a href={`https://www.windy.com/${ZONE_COORDS[zone].lat}/${ZONE_COORDS[zone].lon}?${ZONE_COORDS[zone].lat},${ZONE_COORDS[zone].lon},7`} target="_blank" rel="noopener noreferrer" className="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5" style={{ backgroundColor: C.blue, color: C.white }}><ExternalLink size={13} /> {w.openLive}</a></div></div>}
+      {error && !loading && <div className="rounded-lg p-4 border" style={{ borderColor: C.border, backgroundColor: C.ivory }}><p className="text-sm mb-4" style={{ color: C.slate }}>{error}</p><div className="flex flex-wrap gap-2"><a href="https://www.windy.com/" target="_blank" rel="noopener noreferrer" className="px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5" style={{ backgroundColor: C.blue, color: C.white }}><ExternalLink size={13} /> {w.openLive}</a></div></div>}
       {!loading && !error && data?.current && <>
         <div className="grid sm:grid-cols-3 gap-4 mb-5">
           <div className="rounded-lg p-4" style={{ backgroundColor: C.blueSoft }}><div className="text-xs mb-1" style={{ color: C.blue }}>{w.temp}</div><div className="font-bold text-xl" style={{ color: C.navy }}>{data.current.temperature_2m}°C</div></div>
@@ -956,6 +859,10 @@ export default function ParametricInsurancePlatform() {
   // Hypothèses financières + équipe (Supabase / localStorage)
   const [assumptions, setAssumptions] = useState(DEFAULT_ASSUMPTIONS);
   const [team, setTeam] = useState([]);
+  const [climateBundle, setClimateBundle] = useState(null);
+  const [reportBusy, setReportBusy] = useState(false);
+  const [studyVersion, setStudyVersion] = useState("1.0");
+  const handleClimateBundle = async (bundle) => { setClimateBundle(bundle); if (bundle && accessGranted) { try { await saveClimateRecords(bundle.records, true); } catch (e) { console.warn("Climate persistence skipped", e); } } };
 
   // Espace superviseur — accès protégé par Supabase Auth + admin_profiles
   const [adminOpen, setAdminOpen] = useState(false);
@@ -1013,6 +920,27 @@ export default function ParametricInsurancePlatform() {
   const commercialPremium = useMemo(() => purePremium * (1 + feeRate / 100 + reinsRate / 100 + margin / 100), [purePremium, feeRate, reinsRate, margin]);
   const potentialLoss = useMemo(() => capital * (severity / 100), [capital, severity]);
   const ratio = useMemo(() => (commercialPremium > 0 ? indemnAmount / commercialPremium : 0), [indemnAmount, commercialPremium]);
+  const studyState = useMemo(() => buildStudyState({
+    assumptions, climate: climateBundle,
+    simulator: { sector, zone, capital, climateIndex, coverage, probability, severity, feeRate, reinsRate, margin, indemnity: indemnAmount, commercialPremium },
+    weights: { precip: wPrecip, ndvi: wNdvi, soilMoisture: wHumid },
+    metadata: { version: studyVersion },
+  }), [assumptions, climateBundle, sector, zone, capital, climateIndex, coverage, probability, severity, feeRate, reinsRate, margin, indemnAmount, commercialPremium, wPrecip, wNdvi, wHumid, studyVersion]);
+  const dataHash = useMemo(() => hashStudyState(studyState), [studyState]);
+
+  const handleGenerateDocuments = async (kind) => {
+    setReportBusy(true);
+    try {
+      if (kind === 'word') downloadDocx(studyState);
+      if (kind === 'pptx') downloadPptx(studyState);
+      if (kind === 'version') {
+        const next = String((Number(studyVersion) || 1) + 0.1).replace(/(\.\d)0$/, '$1');
+        setStudyVersion(next);
+        const saved = await saveStudyVersion({ ...studyState, metadata: { ...studyState.metadata, version: next } });
+        if (saved?.dataHash) console.info('Study version saved', saved);
+      }
+    } finally { setReportBusy(false); }
+  };
 
   const navItems = [
     ["home", t.nav.home], ["dashboard", x.nav.dashboard], ["synthese", lang === "ar" ? "خلاصة الجدوى" : "Synthèse"], ["etude", t.nav.etude],
@@ -1267,7 +1195,7 @@ export default function ParametricInsurancePlatform() {
       </section>
 
       {/* DASHBOARD KPI */}
-      <KpiDashboard x={x.dashboard} badges={x.badges} lang={lang} assumptions={assumptions} />
+      <KpiDashboard x={x.dashboard} badges={x.badges} lang={lang} assumptions={assumptions} studyState={studyState} />
 
       {/* SYNTHÈSE UNIFIÉE */}
       <ResearchSynthesis lang={lang} assumptions={assumptions} badges={x.badges} />
@@ -1407,7 +1335,7 @@ export default function ParametricInsurancePlatform() {
             <Card className="md:col-span-2">
               <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{t.risques.chartTitle}</div>
               <ResponsiveContainer width="100%" height={240}>
-                <AreaChart data={RAINFALL_DATA}>
+                <AreaChart data={climateBundle?.monthly || []}>
                   <defs>
                     <linearGradient id="precipGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={C.blue} stopOpacity={0.35} />
@@ -1419,14 +1347,14 @@ export default function ParametricInsurancePlatform() {
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Area type="monotone" dataKey="precip" name="Précipitations (mm)" stroke={C.blue} fill="url(#precipGrad)" strokeWidth={2} />
-                  <Line type="monotone" dataKey="ndvi" name="NDVI (x100)" stroke={C.green} strokeWidth={2} dot={false} />
+                  
                 </AreaChart>
               </ResponsiveContainer>
             </Card>
           </div>
 
           <div className="mt-6">
-            <LiveWeatherWidget lang={lang} dir={dir} w={t.weather} zone={weatherZone} setZone={setWeatherZone} />
+            <LiveWeatherWidget lang={lang} dir={dir} w={t.weather} zone={weatherZone} setZone={setWeatherZone} onBundle={handleClimateBundle} />
           </div>
         </div>
       </section>
@@ -1627,7 +1555,7 @@ export default function ParametricInsurancePlatform() {
       <TechniqueSection x={x.technique} lang={lang} dir={dir} />
 
       {/* ÉTUDE FINANCIÈRE */}
-      <FinanceSection x={x.financier} lang={lang} badges={x.badges} assumptions={assumptions} />
+      <FinanceSection x={x.financier} lang={lang} badges={x.badges} assumptions={assumptions} studyState={studyState} />
 
       {/* MODÈLE DE DÉCLENCHEMENT */}
       <TriggerSimulator x={x.declenchement} lang={lang} />
@@ -1857,10 +1785,24 @@ export default function ParametricInsurancePlatform() {
       </section>
 
       {/* SCÉNARIOS */}
-      <ScenariosSection x={x.scenarios} lang={lang} badges={x.badges} assumptions={assumptions} />
+      <ScenariosSection x={x.scenarios} lang={lang} badges={x.badges} assumptions={assumptions} studyState={studyState} />
 
       {/* SENSIBILITÉ */}
-      <SensibiliteSection x={x.sensibilite} lang={lang} badges={x.badges} assumptions={assumptions} />
+      <SensibiliteSection x={x.sensibilite} lang={lang} badges={x.badges} assumptions={assumptions} studyState={studyState} />
+
+      {/* EXPORTS — même studyState pour Word et PowerPoint */}
+      <section className="max-w-7xl mx-auto px-4 md:px-8 pb-8">
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div><div className="text-sm font-bold" style={{ color: C.navy }}>Documents de l’étude</div><div className="text-xs mt-1" style={{ color: C.slateLight }}>Version {studyVersion} · Data Hash : {dataHash} · {reportBusy ? 'Génération…' : 'Synchronisé avec studyState'}</div></div>
+            <div className="flex flex-wrap gap-2">
+              <button disabled={reportBusy} onClick={() => handleGenerateDocuments('word')} className="px-4 py-2.5 rounded-xl text-xs font-bold" style={{ background:C.navy, color:C.white }}>↓ Télécharger le rapport Word</button>
+              <button disabled={reportBusy} onClick={() => handleGenerateDocuments('pptx')} className="px-4 py-2.5 rounded-xl text-xs font-bold" style={{ background:C.gold, color:C.navy }}>↓ Télécharger la présentation PowerPoint</button>
+              <button disabled={reportBusy} onClick={() => handleGenerateDocuments('version')} className="px-4 py-2.5 rounded-xl text-xs font-bold border" style={{ borderColor:C.border, color:C.navy }}>Générer une nouvelle version</button>
+            </div>
+          </div>
+        </Card>
+      </section>
 
       {/* RESULTATS + SONDAGE + CARTE */}
       <section id="resultats" className="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-20">
@@ -1884,7 +1826,7 @@ export default function ParametricInsurancePlatform() {
             <Card>
               <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{t.resultats.charts[0]}</div>
               <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={RAINFALL_DATA}>
+                <LineChart data={climateBundle?.monthly || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                   <XAxis dataKey="m" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} /><Tooltip />
                   <Line type="monotone" dataKey="precip" stroke={C.blue} strokeWidth={2} dot={{ r: 2 }} />
@@ -1894,17 +1836,17 @@ export default function ParametricInsurancePlatform() {
             <Card>
               <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{t.resultats.charts[1]}</div>
               <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={RAINFALL_DATA}>
+                <LineChart data={climateBundle?.monthly || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                   <XAxis dataKey="m" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} /><Tooltip />
-                  <Line type="monotone" dataKey="ndvi" stroke={C.green} strokeWidth={2} dot={{ r: 2 }} />
+                  <Line type="monotone" dataKey="temperature" stroke={C.green} strokeWidth={2} dot={{ r: 2 }} name="Température (°C)" />
                 </LineChart>
               </ResponsiveContainer>
             </Card>
             <Card>
               <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{t.resultats.charts[2]}</div>
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={DROUGHT_FREQ}>
+                <BarChart data={climateBundle?.historical?.map(x => ({ zone: x.year, freq: x.precipitation })) || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                   <XAxis dataKey="zone" tick={{ fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={50} /><YAxis tick={{ fontSize: 11 }} /><Tooltip />
                   <Bar dataKey="freq" fill={C.orange} radius={[4, 4, 0, 0]} />
@@ -1914,7 +1856,7 @@ export default function ParametricInsurancePlatform() {
             <Card>
               <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{t.resultats.charts[3]}</div>
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={PREMIUM_VS_INDEMNITY}>
+                <BarChart data={studyState.scenarios ? Object.entries(studyState.scenarios).map(([k,v]) => ({ s:k, prime:v.premiums5, indemnite:v.rows.reduce((a,r)=>a+r.indemnities,0) })) : []}>
                   <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
                   <XAxis dataKey="s" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} /><Tooltip /><Legend />
                   <Bar dataKey="prime" fill={C.blue} radius={[4, 4, 0, 0]} name="Prime" />
@@ -1935,16 +1877,7 @@ export default function ParametricInsurancePlatform() {
                 <svg viewBox="0 0 440 300" className="w-full max-w-lg">
                   <rect x="30" y="30" width="380" height="240" rx="12" fill={C.white} stroke={C.blue} strokeWidth="2" strokeDasharray="6 4" />
                   <text x="220" y="52" textAnchor="middle" fontSize="11" fill={C.slateLight}>Mauritanie — schéma illustratif</text>
-                  {ZONE_DETAILS.map((z, i) => {
-                    const positions = [[90, 220], [150, 175], [190, 130], [270, 195], [110, 95], [330, 130], [55, 150]];
-                    const [x, y] = positions[i];
-                    return (
-                      <g key={z.zone}>
-                        <circle cx={x} cy={y} r="9" fill={RISK_COLORS[z.risk]} opacity="0.9" />
-                        <text x={x} y={y + 22} textAnchor="middle" fontSize="9.5" fill={C.navy}>{lang === "ar" ? ZONE_AR[z.zone] : z.zone}</text>
-                      </g>
-                    );
-                  })}
+                  {WILAYAS.map((z, i) => { const positions = [[70,220],[130,180],[190,140],[250,220],[310,180],[370,140],[80,100],[150,70],[220,90],[290,70],[360,90],[110,260],[200,250],[290,260],[370,240]]; const [px,py]=positions[i]; return <g key={z.name}><circle cx={px} cy={py} r="7" fill={C.blue} opacity="0.85"/><text x={px} y={py+18} textAnchor="middle" fontSize="7.5" fill={C.navy}>{lang === "ar" ? ZONE_AR[z.name] : z.name}</text></g>; })}
                 </svg>
               </div>
             </Card>
@@ -1961,16 +1894,12 @@ export default function ParametricInsurancePlatform() {
                     </tr>
                   </thead>
                   <tbody>
-                    {ZONE_DETAILS.map((z, i) => (
+                    {WILAYAS.map((z, i) => (
                       <tr key={i} className="border-b" style={{ borderColor: C.border }}>
-                        <td className="px-4 py-3 font-medium" style={{ color: C.navy }}>{lang === "ar" ? ZONE_AR[z.zone] : z.zone}</td>
-                        <td className="px-4 py-3" style={{ color: C.slate }}>{DOMINANT_LABEL[lang][z.dominant]}</td>
-                        <td className="px-4 py-3" style={{ color: C.slate }}>{z.rainfall}</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: `${RISK_COLORS[z.risk]}1A`, color: RISK_COLORS[z.risk] }}>
-                            <RiskDot level={z.risk} /> {RISK_LABELS[z.risk]}
-                          </span>
-                        </td>
+                        <td className="px-4 py-3 font-medium" style={{ color: C.navy }}>{lang === "ar" ? ZONE_AR[z.name] : z.name}</td>
+                        <td className="px-4 py-3" style={{ color: C.slate }}>{DOMINANT_LABEL[lang][z.sector]}</td>
+                        <td className="px-4 py-3" style={{ color: C.slate }}>{climateBundle?.zone?.name === z.name ? `${(climateBundle.historical.reduce((a,x)=>a+x.precipitation,0)/Math.max(1,climateBundle.historical.length)).toFixed(0)} mm/an` : "Donnée non disponible"}</td>
+                        <td className="px-4 py-3"><span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: C.blueSoft, color: C.blue }}>Source requise / non chargée</span></td>
                       </tr>
                     ))}
                   </tbody>

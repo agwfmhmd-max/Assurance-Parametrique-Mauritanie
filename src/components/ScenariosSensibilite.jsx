@@ -11,24 +11,19 @@ import { projectYears, breakEven, roi, npv, irr, sensitivityHeatmap, fmtCompact,
    ============================================================ */
 const SC_COLORS = { pessimiste: C.red, central: C.gold, optimiste: C.green };
 
-export function ScenariosSection({ x, lang, badges, assumptions }) {
+export function ScenariosSection({ x, lang, badges, assumptions, studyState }) {
   const a = assumptions;
-  const sc = useMemo(() => {
+  const fallbackSc = useMemo(() => {
     const out = {};
     for (const k of ["pessimiste", "central", "optimiste"]) {
       const rows = projectYears(a, SCENARIOS[k].mult);
-      out[k] = {
-        rows,
-        net5: rows.reduce((s, r) => s + r.resultNet, 0),
-        premiums5: rows.reduce((s, r) => s + r.premiums, 0),
-        roi: roi(rows, a.initialInvestment),
-        npv: npv(a, rows),
-        irr: irr(a, rows),
-        be: breakEven(a, SCENARIOS[k].mult),
-      };
+      out[k] = { rows, net5: rows.reduce((s, r) => s + r.resultNet, 0), premiums5: rows.reduce((s, r) => s + r.premiums, 0), roi: roi(rows, a.initialInvestment), npv: npv(a, rows), irr: irr(a, rows), breakEven: breakEven(a, SCENARIOS[k].mult) };
     }
     return out;
   }, [a]);
+  const sc = studyState?.scenarios || fallbackSc;
+  // Compatibilité avec le rendu historique : le nom court `be` pointe vers breakEven.
+  Object.values(sc).forEach(v => { if (v && !v.be) v.be = v.breakEven; });
 
   const names = { pessimiste: x.pess, central: x.cent, optimiste: x.opt };
   const lineData = YEARS.map((y, i) => ({

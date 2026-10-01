@@ -21,7 +21,7 @@ const ChartCard = ({ title, tip, children, badge, badges }) => (
 
 const tickFmt = (lang) => (v) => fmtCompact(v, lang);
 
-export default function FinanceSection({ x, lang, badges, assumptions, isAdmin }) {
+export default function FinanceSection({ x, lang, badges, assumptions, isAdmin, studyState }) {
   const [tab, setTab] = useState(0);
   const a = { ...DEFAULT_ASSUMPTIONS, ...(assumptions || {}) };
   const [rate, setRate] = useState(a.discountRate);
@@ -29,11 +29,16 @@ export default function FinanceSection({ x, lang, badges, assumptions, isAdmin }
 
   const safe = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
   Object.keys(a).forEach((k) => { if (typeof a[k] === "number") a[k] = safe(a[k]); });
-  const rows = useMemo(() => projectYears(a), [a]);
-  const be = useMemo(() => breakEven(a), [a]);
-  const roiC = useMemo(() => roi(rows, a.initialInvestment), [rows, a]);
-  const npvC = useMemo(() => npv({ ...a, discountRate: rate }, rows), [a, rows, rate]);
-  const irrC = useMemo(() => irr(a, rows), [a, rows]);
+  const fallbackRows = useMemo(() => projectYears(a), [a]);
+  const rows = studyState?.financial?.rows || fallbackRows;
+  const fallbackBe = useMemo(() => breakEven(a), [a]);
+  const be = studyState?.scenarios?.central?.breakEven || fallbackBe;
+  const fallbackRoi = useMemo(() => roi(rows, a.initialInvestment), [rows, a]);
+  const roiC = studyState?.scenarios?.central?.roi ?? fallbackRoi;
+  const fallbackNpv = useMemo(() => npv({ ...a, discountRate: rate }, rows), [a, rows, rate]);
+  const npvC = studyState?.scenarios?.central?.npv ?? fallbackNpv;
+  const fallbackIrr = useMemo(() => irr(a, rows), [a, rows]);
+  const irrC = studyState?.scenarios?.central?.irr ?? fallbackIrr;
   const beCurve = useMemo(() => breakEvenCurve(a, SCENARIOS.central.mult, Math.max(be.viable ? be.insuredMin * 2 : 0, a.insuredY1 * 2, 20000)), [a, be]);
 
   /* Tarification */

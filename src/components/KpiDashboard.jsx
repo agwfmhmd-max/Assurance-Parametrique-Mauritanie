@@ -5,11 +5,15 @@ import { projectYears, breakEven, roi, npv, fmtCompact } from "../finance/engine
 
 const unavailable = (lang) => lang === "ar" ? "البيانات غير متاحة" : "Donnée non disponible";
 
-export default function KpiDashboard({ x, badges, lang, assumptions }) {
-  const rows = useMemo(() => projectYears(assumptions), [assumptions]);
-  const be = useMemo(() => breakEven(assumptions), [assumptions]);
-  const roiCentral = useMemo(() => roi(rows, assumptions.initialInvestment), [rows, assumptions]);
-  const npvCentral = useMemo(() => npv(assumptions, rows), [assumptions, rows]);
+export default function KpiDashboard({ x, badges, lang, assumptions, studyState }) {
+  const fallbackRows = useMemo(() => projectYears(assumptions), [assumptions]);
+  const rows = studyState?.financial?.rows || fallbackRows;
+  const fallbackBe = useMemo(() => breakEven(assumptions), [assumptions]);
+  const be = studyState?.scenarios?.central?.breakEven || fallbackBe;
+  const fallbackRoi = useMemo(() => roi(rows, assumptions.initialInvestment), [rows, assumptions]);
+  const roiCentral = studyState?.scenarios?.central?.roi ?? fallbackRoi;
+  const fallbackNpv = useMemo(() => npv(assumptions, rows), [assumptions, rows]);
+  const npvCentral = studyState?.scenarios?.central?.npv ?? fallbackNpv;
   const net5 = rows.reduce((s, r) => s + r.resultNet, 0);
   const avgLossRatio = rows.length ? rows.reduce((s, r) => s + r.lossRatio, 0) / rows.length : 0;
   const fmt = (v) => fmtCompact(v, lang);

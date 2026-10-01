@@ -1,0 +1,51 @@
+import { makeZip } from './zip.js';
+import { buildReportData, esc, money } from './reportDataBuilder.js';
+
+const slideXml = (title, bullets=[]) => `<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/><p:sp><p:nvSpPr><p:cNvPr id="2" name="Title"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="fr-FR" sz="2800" b="1"/><a:t>${esc(title)}</a:t></a:r></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Body"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>${bullets.map(b=>`<a:p><a:pPr lvl="0" marL="360000" indent="-180000"><a:buChar char="•"/></a:pPr><a:r><a:rPr lang="fr-FR" sz="1900"/><a:t>${esc(b)}</a:t></a:r></a:p>`).join('')}</p:txBody></p:sp></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+
+function rels() { return `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>`; }
+
+export function generatePptx(studyState) {
+  const d = buildReportData(studyState);
+  const slides = [
+    ['Étude de faisabilité — Assurance paramétrique en Mauritanie',[d.institution,d.title,`Version ${d.version} · ${d.dataHash}`]],
+    ['Contexte',['Risques climatiques et vulnérabilité des secteurs agricole et de l’élevage','Étude académique de faisabilité — données et hypothèses séparées']],
+    ['Problématique',['Déclencher une indemnisation à partir d’un indice climatique observable','Limiter le risque de base et documenter les limites de données']],
+    ['Questions et objectifs',['Évaluer la faisabilité technique, économique, financière, institutionnelle et opérationnelle','Construire un mécanisme paramétrique traçable']],
+    ['Méthodologie',['Données → indices → risque → trigger → indemnisation → prime → scénarios → faisabilité','Source unique de vérité pour les résultats']],
+    ['Risques climatiques',['Précipitations, température et autres variables réellement disponibles','Aucune valeur climatique fictive utilisée']],
+    ['Agriculture et élevage',['Indices adaptés aux risques des deux secteurs','NDVI et humidité du sol restent indisponibles lorsqu’aucune source n’est enregistrée']],
+    ['Principe de l’assurance paramétrique',['L’indemnisation dépend d’un indice prédéfini et non d’une expertise individuelle de perte']],
+    ['Architecture du système',['Sources climatiques → validation → cache/Supabase → studyState → calculs → exports']],
+    ['Sources de données',[`Actuel : ${d.dataQuality.current}`,`Historique : ${d.dataQuality.historical}`,`Projection : ${d.dataQuality.projection}`]],
+    ['Données climatiques historiques',...(d.historical.length ? [[d.historical.map(x=>`${x.year}: ${x.precipitation.toFixed(0)} mm`).join(' · ')]] : [['Donnée historique non disponible']])],
+    ['Construction de l’indice',[`Pondérations : précipitations ${d.indices.weights.precip} % · NDVI ${d.indices.weights.ndvi} % · humidité ${d.indices.weights.soilMoisture} %`,'Les variables absentes ne sont pas remplacées par des valeurs inventées']],
+    ['Trigger / Exit',[`Indice courant de simulation : ${d.simulator.climateIndex} %`,'Les seuils doivent être calibrés sur des séries historiques cohérentes']],
+    ['Calcul de l’indemnisation',[`Capital simulé : ${money(d.simulator.capital)}`,`Indemnité simulée : ${money(d.simulator.indemnity)}`]],
+    ['Calcul de la prime',[`Prime pure simulée : ${money(d.simulator.capital*d.simulator.probability/100*d.simulator.severity/100)}`,`Prime commerciale simulée : ${money(d.simulator.commercialPremium)}`]],
+    ['Modèle financier',[`VAN centrale : ${money(d.scenarios.central.npv)}`,`ROI central : ${d.scenarios.central.roi.toFixed(1)} %`,`Loss ratio moyen : ${(d.scenarios.central.rows.reduce((s,r)=>s+r.lossRatio,0)/Math.max(1,d.scenarios.central.rows.length)).toFixed(1)} %`]],
+    ['Scénario pessimiste',[`Résultat net cumulé : ${money(d.scenarios.pessimiste.net5)}`,`ROI : ${d.scenarios.pessimiste.roi.toFixed(1)} %`]],
+    ['Scénario central',[`Résultat net cumulé : ${money(d.scenarios.central.net5)}`,`ROI : ${d.scenarios.central.roi.toFixed(1)} %`,`VAN : ${money(d.scenarios.central.npv)}`]],
+    ['Scénario optimiste',[`Résultat net cumulé : ${money(d.scenarios.optimiste.net5)}`,`ROI : ${d.scenarios.optimiste.roi.toFixed(1)} %`]],
+    ['Analyse de sensibilité',['Fréquence et sévérité sont des paramètres de simulation','Toute modification doit recalculer l’état central et les documents']],
+    ['Faisabilité technique',[`Données actuelles : ${d.dataQuality.current}`,`Historique : ${d.dataQuality.historical}`,`Projection : ${d.dataQuality.projection}`]],
+    ['Faisabilité financière',[`VAN centrale : ${money(d.scenarios.central.npv)}`,`Seuil de rentabilité : ${d.scenarios.central.breakEven.viable ? d.scenarios.central.breakEven.insuredMin+' assurés' : 'non atteint'}`]],
+    ['Limites et risques',['Risque de base non estimable directement sans données historiques de pertes individuelles','NDVI et autres variables ne doivent pas être inventés']],
+    ['Recommandations',['Collecter et documenter les historiques de sinistres','Calibrer les seuils, pondérations, primes et réassurance','Conserver la provenance et les versions de chaque étude']],
+    ['Conclusion',[d.conclusion]],
+    ['Merci pour votre attention',[`Data Hash : ${d.dataHash}`,`Généré le ${new Date(d.generatedAt).toLocaleString('fr-FR')}`]],
+  ];
+  const files = [
+    {name:'[Content_Types].xml',data:`<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Default Extension="xml" ContentType="application/xml"/></Types>`},
+    {name:'_rels/.rels',data:`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`},
+    {name:'ppt/presentation.xml',data:`<?xml version="1.0" encoding="UTF-8"?><p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>${slides.map((_,i)=>`<p:sldId id="${256+i}" r:id="rId${i+2}"/>`).join('')}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000" type="screen16x9"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`},
+    {name:'ppt/_rels/presentation.xml.rels',data:`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>${slides.map((_,i)=>`<Relationship Id="rId${i+2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i+1}.xml"/>`).join('')}</Relationships>`},
+    {name:'ppt/slideMasters/slideMaster1.xml',data:`<?xml version="1.0" encoding="UTF-8"?><p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld><p:sldLayoutIdLst><p:sldLayoutId id="1" r:id="rId1"/></p:sldLayoutIdLst><p:txStyles/></p:sldMaster>`},
+    {name:'ppt/slideMasters/_rels/slideMaster1.xml.rels',data:`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>`},
+    {name:'ppt/slideLayouts/slideLayout1.xml',data:`<?xml version="1.0" encoding="UTF-8"?><p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="titleAndContent"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`},
+    {name:'ppt/slideLayouts/_rels/slideLayout1.xml.rels',data:`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>`},
+  ];
+  slides.forEach(([title,...body],i)=>{ files.push({name:`ppt/slides/slide${i+1}.xml`,data:slideXml(title, body.flat())}); files.push({name:`ppt/slides/_rels/slide${i+1}.xml.rels`,data:rels()}); });
+  return makeZip(files);
+}
+export function downloadPptx(studyState) { const bytes=generatePptx(studyState); const blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.presentationml.presentation'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`Presentation_APC_${studyState.metadata.version}.pptx`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }

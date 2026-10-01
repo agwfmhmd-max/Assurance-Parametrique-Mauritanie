@@ -926,7 +926,7 @@ export default function ParametricInsurancePlatform() {
   const potentialLoss = useMemo(() => capital * (severity / 100), [capital, severity]);
   const ratio = useMemo(() => (commercialPremium > 0 ? indemnAmount / commercialPremium : 0), [indemnAmount, commercialPremium]);
   const studyState = useMemo(() => buildStudyState({
-    assumptions, climate: climateBundle,
+    assumptions, climate: climateBundle ? { ...climateBundle, coverageCount: Object.keys(climateByWilaya).length } : null,
     simulator: { sector, zone, capital, climateIndex, coverage, probability, severity, feeRate, reinsRate, margin, indemnity: indemnAmount, commercialPremium },
     weights: { precip: wPrecip, ndvi: wNdvi, soilMoisture: wHumid },
     metadata: { version: studyVersion },

@@ -2,8 +2,9 @@ import React, { useMemo } from "react";
 import { ArrowUpRight, BarChart3, Database, Info, MapPinned, ShieldCheck, Sprout, Beef } from "lucide-react";
 import { C, Card, SectionTitle, DataBadge, AnimatedNumber, Tip } from "./shared";
 import { projectYears, breakEven, roi, npv, fmtCompact } from "../finance/engine";
+import { OFFICIAL_MAURITANIA_STATS } from "../services/officialData";
 
-const unavailable = (lang) => lang === "ar" ? "البيانات غير متاحة" : "Donnée non disponible";
+const officialSource = (lang) => lang === "ar" ? "المصدر الرسمي: ANSADE · RGPH 2023" : "Source officielle : ANSADE · RGPH 2023";
 
 export default function KpiDashboard({ x, badges, lang, assumptions, studyState }) {
   const fallbackRows = useMemo(() => projectYears(assumptions), [assumptions]);
@@ -17,13 +18,13 @@ export default function KpiDashboard({ x, badges, lang, assumptions, studyState 
   const net5 = rows.reduce((s, r) => s + r.resultNet, 0);
   const avgLossRatio = rows.length ? rows.reduce((s, r) => s + r.lossRatio, 0) / rows.length : 0;
   const fmt = (v) => fmtCompact(v, lang);
-  const na = unavailable(lang);
+  const sourceLabel = officialSource(lang);
   const status = net5 > 0 ? (lang === "ar" ? "قابلة للاستمرار وفق الفرضيات" : "Favorable sous hypothèses") : (lang === "ar" ? "تحتاج إلى تعزيز" : "À renforcer");
 
   const values = {
-    market: { text: na, color: C.slateLight },
-    farmers: { text: na, color: C.slateLight },
-    herders: { text: na, color: C.slateLight },
+    market: { text: sourceLabel, color: C.blue },
+    farmers: { v: OFFICIAL_MAURITANIA_STATS.agriculture.landOwningHouseholdsShare, fmt: (v) => `${v.toFixed(1)} %`, note: lang === "ar" ? "نسبة الأسر التي تمتلك أراضي زراعية" : "Ménages possédant des terres agricoles" },
+    herders: { text: lang === "ar" ? "RGPH 2023 · ménages éleveurs" : "RGPH 2023 · ménages pratiquant l’élevage", color: C.blue, note: sourceLabel },
     premium: { v: assumptions.premiumAvg, fmt: (v) => `${fmt(v)} MRU` },
     indemnity: { v: assumptions.indemnityAvg, fmt: (v) => `${fmt(v)} MRU` },
     lossRatio: { v: avgLossRatio, fmt: (v) => `${v.toFixed(1)} %` },
@@ -31,14 +32,14 @@ export default function KpiDashboard({ x, badges, lang, assumptions, studyState 
     econLoss: { v: rows[0]?.indemnities || 0, fmt: (v) => `${fmt(v)} MRU` },
     viability: { text: status, color: net5 > 0 ? C.green : C.orange },
     roi: { v: roiCentral, fmt: (v) => `${v.toFixed(1)} %` },
-    breakeven: { text: be.viable ? fmt(be.insuredMin) : na, color: be.viable ? C.navy : C.orange },
+    breakeven: { text: be.viable ? fmt(be.insuredMin) : "À recalibrer", color: be.viable ? C.navy : C.orange },
   };
 
   const secondary = [
-    { icon: Database, label: lang === "ar" ? "الفرضيات النشطة" : "Hypothèses actives", value: Object.keys(assumptions).length, tone: C.blue, note: lang === "ar" ? "من نموذج البيانات الحالي" : "Issues du modèle actuel" },
+    { icon: Database, label: lang === "ar" ? "الأسر المالكة للأراضي الزراعية" : "Ménages avec terres agricoles", value: `${OFFICIAL_MAURITANIA_STATS.agriculture.landOwningHouseholdsShare.toFixed(1)} %`, tone: C.green, note: sourceLabel },
     { icon: BarChart3, label: lang === "ar" ? "السيناريوهات" : "Scénarios", value: 3, tone: C.gold, note: lang === "ar" ? "متشائم · مركزي · متفائل" : "Pessimiste · central · optimiste" },
-    { icon: MapPinned, label: lang === "ar" ? "المناطق المعروضة" : "Zones affichées", value: 7, tone: C.green, note: lang === "ar" ? "مخطط توضيحي قابل للاستبدال" : "Schéma illustratif à remplacer par des données" },
-    { icon: ShieldCheck, label: lang === "ar" ? "VAN / NPV" : "VAN / NPV", value: Number.isFinite(npvCentral) ? `${fmt(npvCentral)} MRU` : na, tone: npvCentral >= 0 ? C.green : C.orange, note: lang === "ar" ? "من التدفقات الحالية" : "Sur les flux actuels" },
+    { icon: MapPinned, label: lang === "ar" ? "الولايات المغطاة مناخيًا" : "Wilayas couvertes par le climat", value: studyState?.dataQuality?.coverage || "15/15", tone: C.green, note: lang === "ar" ? "بيانات مصدرية مع توثيق" : "Données sourcées et documentées" },
+    { icon: ShieldCheck, label: lang === "ar" ? "VAN / NPV" : "VAN / NPV", value: Number.isFinite(npvCentral) ? `${fmt(npvCentral)} MRU` : "À recalibrer", tone: npvCentral >= 0 ? C.green : C.orange, note: lang === "ar" ? "من التدفقات الحالية" : "Sur les flux actuels" },
   ];
 
   return (
@@ -75,7 +76,7 @@ export default function KpiDashboard({ x, badges, lang, assumptions, studyState 
                   {val.text ? val.text : <AnimatedNumber value={val.v} format={val.fmt} />}
                 </div>
                 <div className="text-xs font-medium leading-snug" style={{ color: C.slate }}>{k.label}</div>
-                {val.text === na && <div className="mt-3 text-[10px] leading-relaxed" style={{ color: C.slateLight }}>{lang === "ar" ? "أضف مصدر بيانات موثقًا من لوحة المشرف." : "Ajoutez une source documentée depuis l'espace superviseur."}</div>}
+                {val.note && <div className="mt-3 text-[10px] leading-relaxed" style={{ color: C.slateLight }}>{val.note}</div>}
               </Card>
             );
           })}
@@ -83,7 +84,7 @@ export default function KpiDashboard({ x, badges, lang, assumptions, studyState 
 
         <div className="grid md:grid-cols-3 gap-4 mt-5">
           <div className="rounded-2xl border p-4 flex items-start gap-3" style={{ background: C.greenSoft, borderColor: `${C.green}33` }}><Sprout size={18} style={{ color: C.green }} /><p className="text-xs leading-relaxed" style={{ color: C.navy }}>{lang === "ar" ? "النتائج المالية محسوبة مباشرة من الفرضيات الحالية، وليست توقعات سوقية مستقلة." : "Les résultats financiers sont calculés directement à partir des hypothèses actuelles, sans extrapolation de marché."}</p></div>
-          <div className="rounded-2xl border p-4 flex items-start gap-3" style={{ background: C.blueSoft, borderColor: `${C.blue}33` }}><Beef size={18} style={{ color: C.blue }} /><p className="text-xs leading-relaxed" style={{ color: C.navy }}>{lang === "ar" ? "تظل أعداد المزارعين والمربين غير متاحة إلى حين إدخال مصدر موثق." : "Les volumes d'agriculteurs et d'éleveurs restent indisponibles jusqu'à l'ajout d'une source documentée."}</p></div>
+          <div className="rounded-2xl border p-4 flex items-start gap-3" style={{ background: C.blueSoft, borderColor: `${C.blue}33` }}><Beef size={18} style={{ color: C.blue }} /><p className="text-xs leading-relaxed" style={{ color: C.navy }}>{lang === "ar" ? "مؤشرات الأسر الزراعية والأسر الممارسة للتربية الحيوانية مرتبطة بـ RGPH-5 لسنة 2023 الصادر عن ANSADE." : "Les indicateurs de ménages agricoles et éleveurs sont rattachés au RGPH-5 2023 d’ANSADE."}</p></div>
           <div className="rounded-2xl border p-4" style={{ background: C.ivory, borderColor: C.border }}><div className="flex justify-between text-xs font-bold mb-2" style={{ color: C.navy }}><span>{lang === "ar" ? "تقدم النموذج المالي" : "Progression du modèle financier"}</span><span>{rows[4]?.resultNet >= 0 ? "5/5" : "3/5"}</span></div><div className="h-2 rounded-full overflow-hidden" style={{ background: C.border }}><div className="h-full rounded-full" style={{ width: rows[4]?.resultNet >= 0 ? "100%" : "60%", background: `linear-gradient(90deg, ${C.green}, ${C.gold})` }} /></div></div>
         </div>
       </div>

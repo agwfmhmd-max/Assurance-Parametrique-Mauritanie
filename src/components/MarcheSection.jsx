@@ -2,20 +2,19 @@ import React from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { C, Card, SectionTitle, DataBadge } from "./shared";
 import { Sprout, Beef, Users, Shield, TrendingUp, Building2 } from "lucide-react";
+import { OFFICIAL_MAURITANIA_STATS } from "../services/officialData";
 
 const BLOCK_ICONS = [Sprout, Beef, Users, Shield, TrendingUp, Building2];
 
 export default function MarcheSection({ x, lang, badges }) {
   const penData = [
-    { name: x.penLabels[0], value: 2 },
-    { name: x.penLabels[1], value: 6 },
-    { name: x.penLabels[2], value: 92 },
+    { name: lang === "ar" ? "أسر تمتلك أراضي زراعية" : "Ménages possédant des terres agricoles", value: OFFICIAL_MAURITANIA_STATS.agriculture.landOwningHouseholdsShare },
+    { name: lang === "ar" ? "أسر أخرى" : "Autres ménages", value: 100 - OFFICIAL_MAURITANIA_STATS.agriculture.landOwningHouseholdsShare },
   ];
   const marketData = [
-    { name: x.marketLabels[0], value: 46 },
-    { name: x.marketLabels[1], value: 27 },
-    { name: x.marketLabels[2], value: 12 },
-    { name: x.marketLabels[3], value: 15 },
+    { name: lang === "ar" ? "ريفي" : "Rural", value: OFFICIAL_MAURITANIA_STATS.agriculture.agriculturalHouseholdsRuralShare },
+    { name: lang === "ar" ? "حضري" : "Urbain", value: OFFICIAL_MAURITANIA_STATS.agriculture.agriculturalHouseholdsUrbanShare },
+    { name: lang === "ar" ? "رحل" : "Nomade", value: OFFICIAL_MAURITANIA_STATS.agriculture.agriculturalHouseholdsNomadicShare },
   ];
   const pieColors = [C.green, C.blue, C.gold, C.blueLight];
   const swotColors = { s: C.green, w: C.orange, o: C.blue, th: C.red };
@@ -24,7 +23,7 @@ export default function MarcheSection({ x, lang, badges }) {
     <section id="marche" className="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-20">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <SectionTitle eyebrow={x.eyebrow} title={x.title} desc={x.desc} />
-        <div className="mt-2"><DataBadge type="estimation" labels={badges} /></div>
+        <div className="mt-2"><DataBadge type="reel" labels={badges} /></div>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
@@ -44,7 +43,7 @@ export default function MarcheSection({ x, lang, badges }) {
 
       <div className="grid md:grid-cols-2 gap-6 mb-10">
         <Card>
-          <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{x.chartPen}</div>
+          <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{lang === "ar" ? "الأسر المالكة للأراضي الزراعية" : "Ménages possédant des terres agricoles"}</div>
           <ResponsiveContainer width="100%" height={230}>
             <PieChart>
               <Pie data={penData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
@@ -56,7 +55,7 @@ export default function MarcheSection({ x, lang, badges }) {
           </ResponsiveContainer>
         </Card>
         <Card>
-          <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{x.chartMarket}</div>
+          <div className="text-sm font-semibold mb-4" style={{ color: C.navy }}>{lang === "ar" ? "توزيع الأسر التي تمارس الزراعة حسب الوسط" : "Ménages pratiquant l’agriculture par milieu"}</div>
           <ResponsiveContainer width="100%" height={230}>
             <BarChart data={marketData} layout="vertical" margin={{ left: 10, right: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />

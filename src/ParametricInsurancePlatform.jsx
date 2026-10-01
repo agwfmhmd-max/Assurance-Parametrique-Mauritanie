@@ -28,7 +28,7 @@ import { ScenariosSection, SensibiliteSection } from "./components/ScenariosSens
 import { TeamSection, ConclusionSection } from "./components/TeamConclusion";
 import AdminPanel from "./components/AdminPanel";
 import { WILAYAS, ZONE_AR } from "./services/climate/dataSources";
-import { fetchClimateBundle } from "./services/climate/climateService";
+import { fetchClimateBundle, fetchAllClimateBundles } from "./services/climate/climateService";
 import { buildStudyState, hashStudyState } from "./services/study/studyState";
 import { saveClimateRecords, saveStudyVersion } from "./services/study/studyRepository";
 import { downloadDocx } from "./services/reports/docxGenerator";
@@ -860,9 +860,10 @@ export default function ParametricInsurancePlatform() {
   const [assumptions, setAssumptions] = useState(DEFAULT_ASSUMPTIONS);
   const [team, setTeam] = useState([]);
   const [climateBundle, setClimateBundle] = useState(null);
+  const [climateByWilaya, setClimateByWilaya] = useState({});
   const [reportBusy, setReportBusy] = useState(false);
   const [studyVersion, setStudyVersion] = useState("1.0");
-  const handleClimateBundle = async (bundle) => { setClimateBundle(bundle); if (bundle && accessGranted) { try { await saveClimateRecords(bundle.records, true); } catch (e) { console.warn("Climate persistence skipped", e); } } };
+  const handleClimateBundle = async (bundle) => { setClimateBundle(bundle); if (bundle) setClimateByWilaya(prev => ({ ...prev, [bundle.zone.name]: bundle })); if (bundle && accessGranted) { try { await saveClimateRecords(bundle.records, true); } catch (e) { console.warn("Climate persistence skipped", e); } } };
 
   // Espace superviseur — accès protégé par Supabase Auth + admin_profiles
   const [adminOpen, setAdminOpen] = useState(false);
@@ -894,6 +895,10 @@ export default function ParametricInsurancePlatform() {
       } catch (err) { console.error("APC data refresh failed", err); }
     };
     refresh();
+    fetchAllClimateBundles().then(results => {
+      const map = Object.fromEntries(results.filter(x => x.bundle).map(x => [x.name, x.bundle]));
+      if (Object.keys(map).length) { setClimateByWilaya(map); setClimateBundle(prev => prev || map[ZONES[0]] || null); }
+    }).catch(() => {});
     const onFocus = () => refresh();
     const onVisibility = () => { if (document.visibilityState === "visible") refresh(); };
     window.addEventListener("focus", onFocus);
@@ -921,7 +926,7 @@ export default function ParametricInsurancePlatform() {
   const potentialLoss = useMemo(() => capital * (severity / 100), [capital, severity]);
   const ratio = useMemo(() => (commercialPremium > 0 ? indemnAmount / commercialPremium : 0), [indemnAmount, commercialPremium]);
   const studyState = useMemo(() => buildStudyState({
-    assumptions, climate: climateBundle,
+    assumptions, climate: climateBundle ? { ...climateBundle, coverageCount: Object.keys(climateByWilaya).length } : null,
     simulator: { sector, zone, capital, climateIndex, coverage, probability, severity, feeRate, reinsRate, margin, indemnity: indemnAmount, commercialPremium },
     weights: { precip: wPrecip, ndvi: wNdvi, soilMoisture: wHumid },
     metadata: { version: studyVersion },
@@ -1898,7 +1903,7 @@ export default function ParametricInsurancePlatform() {
                       <tr key={i} className="border-b" style={{ borderColor: C.border }}>
                         <td className="px-4 py-3 font-medium" style={{ color: C.navy }}>{lang === "ar" ? ZONE_AR[z.name] : z.name}</td>
                         <td className="px-4 py-3" style={{ color: C.slate }}>{DOMINANT_LABEL[lang][z.sector]}</td>
-                        <td className="px-4 py-3" style={{ color: C.slate }}>{climateBundle?.zone?.name === z.name ? `${(climateBundle.historical.reduce((a,x)=>a+x.precipitation,0)/Math.max(1,climateBundle.historical.length)).toFixed(0)} mm/an` : "Donnée non disponible"}</td>
+                        <td className="px-4 py-3" style={{ color: C.slate }}>{climateByWilaya[z.name]?.historical?.length ? `${(climateByWilaya[z.name].historical.reduce((a,x)=>a+x.precipitation,0)/Math.max(1,climateByWilaya[z.name].historical.length)).toFixed(0)} mm/an` : "Source en cours de synchronisation"}</td>
                         <td className="px-4 py-3"><span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: C.blueSoft, color: C.blue }}>Source requise / non chargée</span></td>
                       </tr>
                     ))}

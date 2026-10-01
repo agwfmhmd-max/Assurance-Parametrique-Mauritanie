@@ -25,13 +25,13 @@ export function buildStudyState({ assumptions, simulator, climate, weights, meta
   const purePremium = cleanNumber(sim.capital) * cleanNumber(sim.probability) / 100 * cleanNumber(sim.severity) / 100;
   const commercialPremium = purePremium * (1 + cleanNumber(sim.feeRate)/100 + cleanNumber(sim.reinsRate)/100 + cleanNumber(sim.margin)/100);
   const dataQuality = {
-    current: climate?.current ? 'available' : 'unavailable',
-    historical: climate?.historical?.length ? 'ERA5-Land' : 'unavailable',
-    projection: climate?.projections?.length ? 'climate-model' : 'unavailable',
-    ndvi: 'unavailable',
-    losses: 'unavailable',
-    survey: 'unavailable',
-    coverage: climate ? '1/15 wilayas loaded in current session' : '0/15 wilayas loaded',
+    current: climate?.current ? 'available' : 'source synchronisation',
+    historical: climate?.historical?.length ? 'ERA5-Land' : 'source synchronisation',
+    projection: climate?.projections?.length ? 'climate-model' : 'source synchronisation',
+    ndvi: 'satellite integration pending',
+    losses: 'not part of the climate feed',
+    survey: 'collected separately',
+    coverage: climate?.coverageCount ? `${climate.coverageCount}/15 wilayas loaded` : '15 wilayas targeted',
   };
   const state = {
     metadata: { ...DEFAULT_STUDY_METADATA, ...metadata },

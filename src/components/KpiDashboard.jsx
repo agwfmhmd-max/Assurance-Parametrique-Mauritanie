@@ -39,7 +39,7 @@ export default function KpiDashboard({ x, badges, lang, assumptions, studyState 
     { icon: Database, label: lang === "ar" ? "الأسر المالكة للأراضي الزراعية" : "Ménages avec terres agricoles", value: `${OFFICIAL_MAURITANIA_STATS.agriculture.landOwningHouseholdsShare.toFixed(1)} %`, tone: C.green, note: sourceLabel },
     { icon: BarChart3, label: lang === "ar" ? "السيناريوهات" : "Scénarios", value: 3, tone: C.gold, note: lang === "ar" ? "متشائم · مركزي · متفائل" : "Pessimiste · central · optimiste" },
     { icon: MapPinned, label: lang === "ar" ? "الولايات المغطاة مناخيًا" : "Wilayas couvertes par le climat", value: studyState?.dataQuality?.coverage || "15/15", tone: C.green, note: lang === "ar" ? "بيانات مصدرية مع توثيق" : "Données sourcées et documentées" },
-    { icon: ShieldCheck, label: lang === "ar" ? "VAN / NPV" : "VAN / NPV", value: Number.isFinite(npvCentral) ? `${fmt(npvCentral)} MRU` : na, tone: npvCentral >= 0 ? C.green : C.orange, note: lang === "ar" ? "من التدفقات الحالية" : "Sur les flux actuels" },
+    { icon: ShieldCheck, label: lang === "ar" ? "VAN / NPV" : "VAN / NPV", value: Number.isFinite(npvCentral) ? `${fmt(npvCentral)} MRU` : "À recalibrer", tone: npvCentral >= 0 ? C.green : C.orange, note: lang === "ar" ? "من التدفقات الحالية" : "Sur les flux actuels" },
   ];
 
   return (

@@ -28,7 +28,7 @@ import { ScenariosSection, SensibiliteSection } from "./components/ScenariosSens
 import { TeamSection, ConclusionSection } from "./components/TeamConclusion";
 import AdminPanel from "./components/AdminPanel";
 import { WILAYAS, ZONE_AR } from "./services/climate/dataSources";
-import { fetchClimateBundle } from "./services/climate/climateService";
+import { fetchClimateBundle, fetchAllClimateBundles } from "./services/climate/climateService";
 import { buildStudyState, hashStudyState } from "./services/study/studyState";
 import { saveClimateRecords, saveStudyVersion } from "./services/study/studyRepository";
 import { downloadDocx } from "./services/reports/docxGenerator";
@@ -860,9 +860,10 @@ export default function ParametricInsurancePlatform() {
   const [assumptions, setAssumptions] = useState(DEFAULT_ASSUMPTIONS);
   const [team, setTeam] = useState([]);
   const [climateBundle, setClimateBundle] = useState(null);
+  const [climateByWilaya, setClimateByWilaya] = useState({});
   const [reportBusy, setReportBusy] = useState(false);
   const [studyVersion, setStudyVersion] = useState("1.0");
-  const handleClimateBundle = async (bundle) => { setClimateBundle(bundle); if (bundle && accessGranted) { try { await saveClimateRecords(bundle.records, true); } catch (e) { console.warn("Climate persistence skipped", e); } } };
+  const handleClimateBundle = async (bundle) => { setClimateBundle(bundle); if (bundle) setClimateByWilaya(prev => ({ ...prev, [bundle.zone.name]: bundle })); if (bundle && accessGranted) { try { await saveClimateRecords(bundle.records, true); } catch (e) { console.warn("Climate persistence skipped", e); } } };
 
   // Espace superviseur — accès protégé par Supabase Auth + admin_profiles
   const [adminOpen, setAdminOpen] = useState(false);
@@ -894,6 +895,10 @@ export default function ParametricInsurancePlatform() {
       } catch (err) { console.error("APC data refresh failed", err); }
     };
     refresh();
+    fetchAllClimateBundles().then(results => {
+      const map = Object.fromEntries(results.filter(x => x.bundle).map(x => [x.name, x.bundle]));
+      if (Object.keys(map).length) { setClimateByWilaya(map); setClimateBundle(prev => prev || map[ZONES[0]] || null); }
+    }).catch(() => {});
     const onFocus = () => refresh();
     const onVisibility = () => { if (document.visibilityState === "visible") refresh(); };
     window.addEventListener("focus", onFocus);

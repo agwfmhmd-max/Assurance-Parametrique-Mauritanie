@@ -1,6 +1,7 @@
 import { CLIMATE_SOURCES, WILAYAS } from './dataSources';
 
 const cache = new Map();
+const BUNDLE_TTL_MS = 30 * 60 * 1000;
 const keyFor = (type, zone) => `${type}:${zone}`;
 const today = () => new Date().toISOString().slice(0, 10);
 const yearStart = y => `${y}-01-01`;
@@ -65,6 +66,8 @@ function aggregateMonthly(times = [], temps = [], precs = [], zone) {
 }
 
 export async function fetchClimateBundle(zoneName) {
+  const cached = cache.get(keyFor('bundle', zoneName));
+  if (cached && Date.now() - new Date(cached.retrievedAt).getTime() < BUNDLE_TTL_MS) return cached;
   const zone = await resolveWilaya(zoneName);
   if (!Number.isFinite(zone.lat) || !Number.isFinite(zone.lon)) throw new Error('GEO_DATA_UNAVAILABLE');
   const now = today(); const currentYear = Number(now.slice(0, 4));
@@ -72,22 +75,30 @@ export async function fetchClimateBundle(zoneName) {
   const futureStart = yearStart(currentYear + 1); const futureEnd = yearEnd(currentYear + 5);
   const urls = {
     current: `${CLIMATE_SOURCES.openMeteoForecast.url}?latitude=${zone.lat}&longitude=${zone.lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=7&forecast_days=16&timezone=auto`,
-    historical: `${CLIMATE_SOURCES.openMeteoHistorical.url}?latitude=${zone.lat}&longitude=${zone.lon}&start_date=${histStart}&end_date=${histEnd}&daily=temperature_2m_mean,precipitation_sum&timezone=auto`,
-    projection: `${CLIMATE_SOURCES.openMeteoClimate.url}?latitude=${zone.lat}&longitude=${zone.lon}&start_date=${futureStart}&end_date=${futureEnd}&models=${CLIMATE_SOURCES.openMeteoClimate.model}&daily=temperature_2m_mean,precipitation_sum&timezone=auto`,
+    historical: `${CLIMATE_SOURCES.openMeteoHistorical.url}?latitude=${zone.lat}&longitude=${zone.lon}&start_date=${histStart}&end_date=${histEnd}&hourly=soil_moisture_0_to_7cm&daily=temperature_2m_mean,temperature_2m_max,precipitation_sum,soil_moisture_0_to_7cm_mean&timezone=auto`,
+    projection: `${CLIMATE_SOURCES.openMeteoClimate.url}?latitude=${zone.lat}&longitude=${zone.lon}&start_date=${futureStart}&end_date=${futureEnd}&models=${CLIMATE_SOURCES.openMeteoClimate.model}&daily=temperature_2m_mean,temperature_2m_max,precipitation_sum,soil_moisture_0_to_10cm_mean&timezone=auto`,
   };
-  const responses = await Promise.all(Object.values(urls).map(u => fetch(u)));
-  if (responses.some(r => !r.ok)) throw new Error('CLIMATE_API_UNAVAILABLE');
-  const [current, historical, projection] = await Promise.all(responses.map(r => r.json()));
-  const hist = aggregateAnnual(historical.daily?.time, historical.daily?.temperature_2m_mean, historical.daily?.precipitation_sum, zone.name);
-  const monthly = aggregateMonthly(historical.daily?.time, historical.daily?.temperature_2m_mean, historical.daily?.precipitation_sum, zone.name).slice(-12);
-  const proj = aggregateAnnual(projection.daily?.time, projection.daily?.temperature_2m_mean, projection.daily?.precipitation_sum, zone.name).map(x => ({ ...x, provenance: { ...x.provenance, source: CLIMATE_SOURCES.openMeteoClimate.name, sourceUrl: CLIMATE_SOURCES.openMeteoClimate.url, dataset: CLIMATE_SOURCES.openMeteoClimate.model, dataType: 'projection', qualityStatus: 'model' } }));
+  const entries = await Promise.all(Object.entries(urls).map(async ([key, u]) => {
+    try { const r = await fetch(u); return [key, r.ok ? await r.json() : null]; }
+    catch { return [key, null]; }
+  }));
+  const payload = Object.fromEntries(entries);
+  const current = payload.current;
+  const historical = payload.historical;
+  const projection = payload.projection;
+  if (!current && !historical && !projection) throw new Error('CLIMATE_API_UNAVAILABLE');
+  const hist = aggregateAnnual(historical?.daily?.time, historical?.daily?.temperature_2m_mean, historical?.daily?.precipitation_sum, zone.name);
+  const monthly = aggregateMonthly(historical?.daily?.time, historical?.daily?.temperature_2m_mean, historical?.daily?.precipitation_sum, zone.name).slice(-12);
+  const proj = aggregateAnnual(projection?.daily?.time, projection?.daily?.temperature_2m_mean, projection?.daily?.precipitation_sum, zone.name).map(x => ({ ...x, provenance: { ...x.provenance, source: CLIMATE_SOURCES.openMeteoClimate.name, sourceUrl: CLIMATE_SOURCES.openMeteoClimate.url, dataset: CLIMATE_SOURCES.openMeteoClimate.model, dataType: 'projection', qualityStatus: 'model' } }));
+  const soil = historical?.daily?.soil_moisture_0_to_7cm_mean?.filter(Number.isFinite)?.at(-1) ?? null;
   const records = [];
   const push = (value, unit, source, dataset, date, variable, temporalResolution, dataType) => records.push({ ...provenance(value, unit, source, dataset, date, zone.name, temporalResolution, dataType), variable, wilaya: zone.name, latitude: zone.lat, longitude: zone.lon });
-  if (Number.isFinite(Number(current.current?.temperature_2m))) push(Number(current.current.temperature_2m), current.current_units?.temperature_2m || '°C', CLIMATE_SOURCES.openMeteoForecast, null, now, 'temperature_2m', 'instantaneous', 'observed/operational');
-  if (Number.isFinite(Number(current.current?.precipitation))) push(Number(current.current.precipitation), current.current_units?.precipitation || 'mm', CLIMATE_SOURCES.openMeteoForecast, null, now, 'precipitation', 'instantaneous', 'observed/operational');
+  if (Number.isFinite(Number(current?.current?.temperature_2m))) push(Number(current.current.temperature_2m), current.current_units?.temperature_2m || '°C', CLIMATE_SOURCES.openMeteoForecast, null, now, 'temperature_2m', 'instantaneous', 'observed/operational');
+  if (Number.isFinite(Number(current?.current?.precipitation))) push(Number(current.current.precipitation), current.current_units?.precipitation || 'mm', CLIMATE_SOURCES.openMeteoForecast, null, now, 'precipitation', 'instantaneous', 'observed/operational');
+  if (Number.isFinite(Number(soil))) push(Number(soil), 'm³/m³', CLIMATE_SOURCES.openMeteoHistorical, 'ERA5-Land', `${currentYear - 1}-12-31`, 'soil_moisture_0_to_7cm_mean', 'daily', 'reanalysis');
   hist.forEach(x => push(x.precipitation, 'mm', CLIMATE_SOURCES.openMeteoHistorical, 'ERA5-Land', `${x.year}-12-31`, 'precipitation_sum', 'annual', 'reanalysis'));
   proj.forEach(x => push(x.precipitation, 'mm', CLIMATE_SOURCES.openMeteoClimate, CLIMATE_SOURCES.openMeteoClimate.model, `${x.year}-12-31`, 'precipitation_sum', 'annual', 'projection'));
-  const bundle = { zone, current, historical: hist, monthly, projections: proj, records, retrievedAt: new Date().toISOString(), qualityStatus: 'verified' };
+  const bundle = { zone, current, historical: hist, monthly, projections: proj, soilMoisture: soil, records, sourceUrls: urls, retrievedAt: new Date().toISOString(), qualityStatus: 'verified' };
   cache.set(keyFor('bundle', zoneName), bundle); return bundle;
 }
 
@@ -100,4 +111,12 @@ export function getClimateQuality(bundle, coverageCount = 0) {
     lastUpdated: bundle?.retrievedAt || null,
     coverage: `${coverageCount}/15 wilayas`,
   };
+}
+
+export async function fetchAllClimateBundles() {
+  const results = await Promise.all(WILAYAS.map(async (z) => {
+    try { return { name: z.name, bundle: await fetchClimateBundle(z.name), error: null }; }
+    catch (error) { return { name: z.name, bundle: null, error: String(error?.message || error) }; }
+  }));
+  return results;
 }

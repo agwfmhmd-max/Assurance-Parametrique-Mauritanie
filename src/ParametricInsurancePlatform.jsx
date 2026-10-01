@@ -1903,7 +1903,7 @@ export default function ParametricInsurancePlatform() {
                       <tr key={i} className="border-b" style={{ borderColor: C.border }}>
                         <td className="px-4 py-3 font-medium" style={{ color: C.navy }}>{lang === "ar" ? ZONE_AR[z.name] : z.name}</td>
                         <td className="px-4 py-3" style={{ color: C.slate }}>{DOMINANT_LABEL[lang][z.sector]}</td>
-                        <td className="px-4 py-3" style={{ color: C.slate }}>{climateBundle?.zone?.name === z.name ? `${(climateBundle.historical.reduce((a,x)=>a+x.precipitation,0)/Math.max(1,climateBundle.historical.length)).toFixed(0)} mm/an` : "Donnée non disponible"}</td>
+                        <td className="px-4 py-3" style={{ color: C.slate }}>{climateByWilaya[z.name]?.historical?.length ? `${(climateByWilaya[z.name].historical.reduce((a,x)=>a+x.precipitation,0)/Math.max(1,climateByWilaya[z.name].historical.length)).toFixed(0)} mm/an` : "Source en cours de synchronisation"}</td>
                         <td className="px-4 py-3"><span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: C.blueSoft, color: C.blue }}>Source requise / non chargée</span></td>
                       </tr>
                     ))}
